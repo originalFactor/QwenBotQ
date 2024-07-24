@@ -1,7 +1,7 @@
 [project]
-name = "FurBot"
+name = "furBot"
 version = "0.1.0"
-description = "FurBot"
+description = "QQ furry bot based on NoneBot architecture."
 readme = "README.md"
 requires-python = ">=3.8, <4.0"
 
@@ -10,5 +10,5 @@ adapters = [
     { name = "Satori", module_name = "nonebot.adapters.satori" }
 ]
 plugins = []
-plugin_dirs = []
+plugin_dirs = ["furBot/plugins"]
 builtin_plugins = ["echo"]

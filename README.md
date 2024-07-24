@@ -1,4 +1,4 @@
-# FurBot
+# furBot
 
 ## How to start
 
