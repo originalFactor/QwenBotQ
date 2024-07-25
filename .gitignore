@@ -1,2 +1,4 @@
 .env.prod
 QWEN_API_KEY
+.python-version
+.venv
