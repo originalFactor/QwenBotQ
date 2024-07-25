@@ -6,15 +6,16 @@ from datetime import datetime
 conn = connect('coins.db')
 cursor = conn.cursor()
 
-cursor.execute('''
-CREATE TABLE IF EXISTS(
+cursor.executescript('''
+CREATE TABLE IF NOT EXISTS coins (
     ID INT PRIMARY KEY NOT NULL,
     COIN INT DEFAULT 0 NOT NULL
-)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uid ON coins (ID);
 ''')
 
 dailySign = on_command("sign", to_me())
 @dailySign.handle()
 async def dailySignHandler():
-    cursor.execute()
-
+    #cursor.execute()
+    await dailySign.finish("Feature not yet implemented.")

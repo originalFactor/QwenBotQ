@@ -35,3 +35,4 @@ async def autoReplyHandler(args:Message=CommandArg()):
             await autoReply.finish(response.output.choices[0].message.content) # type: ignore
         await autoReply.finish("不知道通义服务器炸了还是我代码炸了")
     await autoReply.finish("没问题怎么问呢？")
+

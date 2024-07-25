@@ -1,5 +1,5 @@
 [project]
-name = "furBot"
+name = "qwenBot"
 version = "0.1.0"
 description = "QQ furry bot based on NoneBot architecture."
 readme = "README.md"
@@ -10,5 +10,4 @@ adapters = [
     { name = "Satori", module_name = "nonebot.adapters.satori" }
 ]
 plugins = []
-plugin_dirs = ["furBot/plugins"]
-builtin_plugins = ["echo"]
+plugin_dirs = ["qwenBot/plugins"]
