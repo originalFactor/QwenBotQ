@@ -57,15 +57,14 @@ Done.
 Unfortunely, the configuration isn't same for everyone.
 That means you have to create one yourself.
 
-Rename `.env.example` to `.env.prod`,
-then open `~/.chronocat/config/chronocat.yml`,
+Open `~/.chronocat/config/chronocat.yml` and `.env`,
 so you can know what value should you set.
 
 ### Register dashscope
 
 Simply register an account on Aliyun and charge, then create access api-key [here](https://dashscope.aliyun.com/).
 
-Save the key to `QWEN_API_KEY` file.
+Rename `.env.prod.example` to `.env.prod`, and fill your api-key there.
 
 ### Run!
 

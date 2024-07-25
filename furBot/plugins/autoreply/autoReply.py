@@ -8,10 +8,11 @@ import dashscope
 from http import HTTPStatus
 # Random
 from random import randint
+# self
+from . import config
 
 # Initialize Dashscope Api Key
-dashscope.api_key_file_path = 'QWEN_API_KEY'
-
+dashscope.api_key = config.dashscope_api_key
 
 # [PRIVATE] `/autoReply` handle
 autoReply = on_command('autoReply',to_me())
@@ -21,7 +22,7 @@ async def autoReplyHandler(args:Message=CommandArg()):
         response = dashscope.Generation.call(
             model="qwen-max-longcontext",
             messages=[
-                {'role': 'system', 'content': 'You are a helpful assistant. Try your best to do your job!'}, # type: ignore
+                {'role': 'system', 'content': config.system_prompt}, # type: ignore
                 {'role': 'user', 'content': userRequest}
             ],
             seed=randint(1,10000),
