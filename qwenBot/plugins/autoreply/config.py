@@ -3,7 +3,6 @@ from pydantic import BaseModel, field_validator
 
 class Config(BaseModel):
     """Plugin Config Here"""
-    system_prompt : str = "You are a helpful assistant."
     dashscope_api_key : str
 
     @field_validator("dashscope_api_key")
