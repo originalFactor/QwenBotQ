@@ -13,7 +13,7 @@ from os.path import exists
 dashscope.api_key = config.dashscope_api_key
 
 # [PRIVATE] Message Handler
-autoReply = on_message()
+autoReply = on_message(rule=to_me()&startswith("/askGPT"))
 @autoReply.handle()
 async def autoReplyHandler(message:Message = EventMessage()):
     if userRequest := message.extract_plain_text():
@@ -36,7 +36,7 @@ async def autoReplyHandler(message:Message = EventMessage()):
 
 # Initialize System Prompt
 def applyPrompt(prompt:Union[str,None]=None, nick:Union[str,None]=None):
-    global SYSTEM_PROMPT, CHATBOT_NICKNAME
+    global SYSTEM_PROMPT, CHATBOT_NICKNAME, autoReply
     if prompt:
         with open("SYSTEM_PROMPT.txt",'w') as f:
             f.write(prompt)
@@ -61,6 +61,7 @@ applyPrompt()
 profile = on_command('profile',to_me())
 @profile.handle()
 async def profileHandler(args:Message = CommandArg()):
-    applyPrompt(*(args.extract_plain_text().split()))
+    txtArgs = args.extract_plain_text().split()
+    applyPrompt(*((' '.join(txtArgs[:-1]), txtArgs[-1]) if txtArgs else ()))
     await profile.finish("已应用配置！")
 

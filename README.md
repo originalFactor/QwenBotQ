@@ -72,6 +72,21 @@ Rename `.env.prod.example` to `.env.prod`, and fill your api-key there.
 nb run
 ```
 
+## Using
+
+If the robot's online, you can just send it `/askGPT <Your Prompt>`.
+
+If you want to use it in a guild, you should make sure it's in and send `@robot /askGPT <your prompt>`.
+
+`@robot` is to `@` your robot account's username, not `@robot` itself.
+It's to make `nonebot` catch it by `to_me()` rule.
+
+`/askGPT`(nickname but like a command) and system prompt can be customized by `/profile <system prompt> <nickname>`.
+
+For example, send `/profile You are a smart assistant. assistant`, and the system prompt will be set as
+`You are a smart assistant`, and the nickname will be `assistant`.
+Do not need quotes.
+
 ## Resources
 
 - [NoneBot Document](https://nonebot.dev/)
