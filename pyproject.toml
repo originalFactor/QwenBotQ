@@ -1,13 +1,12 @@
 [project]
-name = "qwenBot"
+name = "aioBot"
 version = "0.1.0"
-description = "QQ furry bot based on NoneBot architecture."
+description = "All in one QQ bot based on Nonebot and LLOneBot."
 readme = "README.md"
 requires-python = ">=3.8, <4.0"
 
 [tool.nonebot]
 adapters = [
-    { name = "Satori", module_name = "nonebot.adapters.satori" }
+    {name = "OneBot V11", module_name = "nonebot.adapters.onebot.v11"}
 ]
-plugins = []
-plugin_dirs = ["qwenBot/plugins"]
+plugin_dirs = ["aioBot/plugins"]
