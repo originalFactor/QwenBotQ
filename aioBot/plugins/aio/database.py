@@ -2,7 +2,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, field_validator
 from httpx import AsyncClient
 from . import config
-from typing import Union, Dict
+from typing import Union, List
 from datetime import datetime, timedelta
 
 class User(BaseModel):
@@ -10,6 +10,8 @@ class User(BaseModel):
     nick : str
     permission : int = 0
     system_prompt : str = config.system_prompt
+    coins : int = 0
+    last_signed_date : datetime = datetime(1970,1,1)
 
     @property
     async def avatar(self)->bytes:
@@ -62,17 +64,26 @@ async def createUser(user:User):
 async def updateUser(user:User):
     await users.update_one({'id':user.id},{'$set': user.model_dump()})
 
-async def findCoupleX(x:str)->Union[Couple,None]:
+async def findCoupleX(x:Union[str,None])->Union[Couple,None]:
     tmp = await couples.find_one({'$or': [{'A': x}, {'B': x}]})
     return (Couple(**tmp) if tmp else None)
 
-async def findCouple(x:str)->Union[Couple,None]:
-    cp = await findCoupleX(x)
+async def findCouple(x:Union[str,None])->Union[Couple,None]:
+    cp = await findCoupleX(x) if x else None
     return cp if cp and cp.date>=datetime.today()-timedelta(1) else None
 
-async def useCouple(a:str, b:str):
+async def rmCouple(a:Union[str,None], b:Union[str,None]):
     if A := await findCoupleX(a):
         await couples.delete_one(A.model_dump(exclude={'date'}))
     if B := await findCoupleX(b):
         await couples.delete_one(B.model_dump(exclude={'date'}))
+
+async def useCouple(a:str, b:str):
+    await rmCouple(a,b)
     await couples.insert_one(Couple(A=a,B=b,date=datetime.now()).model_dump())
+
+async def getTop10Users()->List[User]:
+    result = []
+    async for document in users.find({}).sort('coins',-1).limit(10):
+        result.append(User(**document))
+    return result

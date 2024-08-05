@@ -13,5 +13,5 @@ __plugin_meta__ = PluginMetadata(
 
 config = get_plugin_config(Config)
 
-from .autoReply import *
+from .features import *
 from .init import *

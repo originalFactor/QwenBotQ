@@ -8,6 +8,9 @@ class Config(BaseModel):
     supermgr_id : str
     system_prompt : str = 'You are a smart assistant.'
     system_reset_command : str = 'initialize'
+    daily_sign_max_coins : int = 5
+    daily_sign_min_coins : int = 1
+    refresh_price : int = 1
 
     @field_validator('supermgr_id')
     @classmethod

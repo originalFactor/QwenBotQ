@@ -4,10 +4,10 @@ from nonebot.params import CommandArg
 import dashscope
 from http import HTTPStatus
 from random import randint
+from .database import *
 from . import config
-from .database import getUser, createUser, User, updateUser, useCouple
-from random import choice
-from datetime import datetime
+from random import choice, randint
+from datetime import datetime, timedelta
 
 # Initialize Dashscope Api Key
 dashscope.api_key = config.dashscope_api_key
@@ -31,7 +31,7 @@ async def getUserFromId(id:int, bot:Bot)->User:
         await updateUser(user)
     return user
 
-# [PRIVATE] Message Handler
+# [PUBLIC] Message Handler
 autoReply = on_command('llm')
 @autoReply.handle()
 async def autoReplyHandler(bot:Bot, event:MessageEvent, args:Message = CommandArg()):
@@ -55,8 +55,8 @@ async def autoReplyHandler(bot:Bot, event:MessageEvent, args:Message = CommandAr
         await autoReply.finish(f"错误：API服务器返回状态码{response.status_code}！") # type: ignore
     await autoReply.finish(f"系统消息：虽然你啥也没说，但是我记住你了！")
 
-# [PRIVATE] `/setPrompt`
-setPromptMatcher = on_command('setPrompt')
+# [PUBLIC] `/setPrompt`
+setPromptMatcher = on_command('prompt')
 @setPromptMatcher.handle()
 async def setPrompt(event:MessageEvent, bot:Bot, args:Message = CommandArg()):
     user = await getUserFromId(event.user_id, bot)
@@ -64,30 +64,35 @@ async def setPrompt(event:MessageEvent, bot:Bot, args:Message = CommandArg()):
     await updateUser(user)
     await setPromptMatcher.finish('已尝试更新您的专属系统提示词')
 
-# [DEBUG] `/getInformation`
-getInformationMatcher = on_command('getInformation')
+# [PUBLIC] `/getInformation`
+getInformationMatcher = on_command('info')
 @getInformationMatcher.handle()
 async def getInformation(event:MessageEvent, bot:Bot, args:Message = CommandArg()):
     user = await getUserFromId(
         int(args['at',0].data['qq'] if args['at'] else event.user_id),
         bot
     )
-    couple = await user.couple
-    if not couple: couple = '未绑定'
+    if couple := await user.couple:
+        coupleUser = await getUserFromId(int(couple), bot)
+    else: coupleUser = User(id="-1", nick="未绑定")
+    if cp := await findCouple(user.id):
+        expire = cp.date+timedelta(1)
+    else: expire = datetime(1970,1,1,0,0,0,1)
     await getInformationMatcher.finish(
         f'''{user.id}的用户信息：
 昵称：{user.nick}
+积分：{user.coins} {"本日已签到" if user.last_signed_date>=datetime.today()-timedelta(1) else "本日未签到"}
 权限等级：{user.permission}
 系统提示词：{user.system_prompt}
 头像：'''
         +
         MessageSegment.image(await user.avatar)
         +
-        f'本日老婆：{couple}'
+        f'本日老婆：{coupleUser.nick} ({coupleUser.id}) 失效时间：{expire.strftime("%Y/%m/%d %H:%M:%S")}'
     )
 
-# [PRIVATE] [SUPER] `/grantPermission`
-grantPermissionMatcher = on_command('grantPermission')
+# [SUPER] `/grantPermission`
+grantPermissionMatcher = on_command('grant')
 @grantPermissionMatcher.handle()
 async def grantPermission(event:MessageEvent, bot:Bot, args:Message = CommandArg()):
     user = await getUserFromId(event.user_id, bot)
@@ -98,7 +103,7 @@ async def grantPermission(event:MessageEvent, bot:Bot, args:Message = CommandArg
         await grantPermissionMatcher.finish("已尝试授权.")
     await grantPermissionMatcher.finish("授权者权限不足")
 
-# [PRIVATE] [SUPER] `/bind`
+# [SUPER] `/bind`
 bindMatcher = on_command('bind')
 @bindMatcher.handle()
 async def bind(event:MessageEvent, bot:Bot, args:Message = CommandArg()):
@@ -107,7 +112,7 @@ async def bind(event:MessageEvent, bot:Bot, args:Message = CommandArg()):
         await bindMatcher.finish('已尝试绑定CP！')
     await bindMatcher.finish('权限不足！请找超管提权')
 
-# [PRIVATE] `/wife`
+# [PUBLIC] `/wife`
 wifeMatcher = on_command('wife')
 @wifeMatcher.handle()
 async def wife(event:GroupMessageEvent, bot:Bot):
@@ -122,8 +127,50 @@ async def wife(event:GroupMessageEvent, bot:Bot):
         f'你今天的老婆是：{myWifeInfo.nick}'+MessageSegment.image(await myWifeInfo.avatar)+'今日关系已绑定，要好好珍惜哦！'
     )
 
-# [PRIVATE] `/groupMembers`
-groupMembersMatcher = on_command('groupMembers')
+# [PUBLIC] `/groupMembers`
+groupMembersMatcher = on_command('members')
 @groupMembersMatcher.handle()
 async def groupMembers(event:GroupMessageEvent, bot:Bot):
-    await groupMembersMatcher.finish('\n'.join([x['nickname'] for x in (await bot.get_group_member_list(group_id=event.group_id))]))
+    await groupMembersMatcher.finish('\n'.join([f"{x['nickname']} ({x['user_id']})" for x in (await bot.get_group_member_list(group_id=event.group_id))]))
+
+# [PUBLIC] `/sign`
+signMatcher = on_command('sign')
+@signMatcher.handle()
+async def sign(event:MessageEvent, bot:Bot):
+    user = await getUserFromId(event.user_id, bot)
+    if user.last_signed_date <= datetime.today()-timedelta(1):
+        coins = randint(config.daily_sign_min_coins, config.daily_sign_max_coins)
+        user.coins += coins
+        user.last_signed_date = datetime.now()
+        await updateUser(user)
+        await signMatcher.finish(f'签到成功！本次获得{coins}个积分')
+    await signMatcher.finish("本日已签到！请勿重复签到")
+
+# [PUBLIC] `/rank`
+rankMatcher = on_command('rank')
+@rankMatcher.handle()
+async def rank():
+    users = await getTop10Users()
+    await rankMatcher.finish(
+        '积分排行榜：\n'+
+        (
+            '\n'.join(
+                [
+                    f'[{x+1}] {users[x].nick} ({users[x].id}) : {users[x].coins}'
+                    for x in range(len(users))
+                ]
+            )
+        )
+    )
+
+# [PUBLIC] `/refresh`
+refreshMatcher = on_command('refresh')
+@refreshMatcher.handle()
+async def refresh(event:MessageEvent, bot:Bot):
+    user = await getUserFromId(event.user_id, bot)
+    if user.coins>=config.refresh_price:
+        await rmCouple(user.id, await user.couple)
+        user.coins -= config.refresh_price
+        await updateUser(user)
+        await refreshMatcher.finish(f'已花费{config.refresh_price}积分解除绑定！')
+    await refreshMatcher.finish(f'积分不足，需花费{config.refresh_price}积分.')
