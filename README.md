@@ -1,100 +1,32 @@
-# QwenQBot
+# QQ 娱乐机器人
 
-A bot using NoneBot2 that supports chat with Aliyun Qwen LLM.
+使用Nonebot+LLOneBot驱动的娱乐型QQ机器人
 
-## How to start
+## 功能
 
-Here are classic instructions to run this project over QQNT.
+- 通义千问回答
+- 群员老婆
 
-### Check Python version
+## 警告
 
-```sh
-python3 -V
-```
+您应该确保您有丰富的经验（即研读过相关项目文档），本文并未详细阐述配置方式，但请自行领悟。
 
-Make sure your python3 version is higher than `3.8`.
-Otherwise, you should install it, recommend [PyENV](https://github.com/pyenv/pyenv).
+如不确定，请查看代码或前往Discussions询问。
 
-### Install requirements
+## 前置条件
 
-```sh
-python3 -m pip install --user pipx
-python3 -m pipx ensurepath
-pipx install nb-cli
-python3 -m pip install dashscope
-```
+请参照 [Nonebot官方文档](https://nonebot.dev/docs/quick-start)
+安装好脚手架。
 
-Other requirements should be installed automatically by `nb-cli`.
-Otherwise, There are these requirments:
-```
-Drivers:
-- httpx
-- websockets
+本项目使用的Drivers有：
+- fastapi
 
-Adapters:
-- Satori
-```
+本项目使用的Adapters有：
+- Onebot V11
 
-### Setup server
+请参照 [LLOneBot官方文档](https://llonebot.github.io/zh-CN/guide/getting-started)
+安装好机器人，并做好对接配置
 
-You should have a QQNT application installed on your computer.
-Otherwise, just download it [here](https://im.qq.com/index/#downloadAnchor)
+## 配置文件
 
-Then you should install a LiteLoaderQQNT by the installer [here](https://github.com/Mzdyl/LiteLoaderQQNT_Install/)
-
-Then open the application, open settings->LiteLoaderQQNT, then open the data directory.
-(It usually be `C:\Users\YourUserName\Documents\LiteLoader` for Windows or `/opt/LiteLoader` for linux)
-
-Download the `api`, `event` engine and `chronocat` itself [here](https://github.com/chrononeko/chronocat/releases),
-`unzip` it to `{YOUR-DATA-DIRECTORY}/plugins`
-
-Then restart your QQNT application.
-
-Done.
-
-### Change configuration
-
-Unfortunely, the configuration isn't same for everyone.
-That means you have to create one yourself.
-
-Open `~/.chronocat/config/chronocat.yml` and `.env`,
-so you can know what value should you set.
-
-### Register dashscope
-
-Simply register an account on Aliyun and charge, then create access api-key [here](https://dashscope.aliyun.com/).
-
-Rename `.env.prod.example` to `.env.prod`, and fill your api-key there.
-
-### Run!
-
-```sh
-nb run
-```
-
-## Using
-
-If the robot's online, you can just send it `/askGPT <Your Prompt>`.
-
-If you want to use it in a guild, you should make sure it's in and send `@robot /askGPT <your prompt>`.
-
-`@robot` is to `@` your robot account's username, not `@robot` itself.
-It's to make `nonebot` catch it by `to_me()` rule.
-
-`/askGPT`(nickname but like a command) and system prompt can be customized by `/profile <system prompt> <nickname>`.
-
-For example, send `/profile You are a smart assistant. assistant`, and the system prompt will be set as
-`You are a smart assistant`, and the nickname will be `assistant`.
-Do not need quotes.
-
-## Resources
-
-- [NoneBot Document](https://nonebot.dev/)
-- [Satori Nonebot Adapter GitHub](https://github.com/nonebot/adapter-satori?tab=readme-ov-file)
-- [Chronocat Document](https://chronocat.vercel.app/)
-
-## Community
-
-Is that thing really exists? IDK.
-
-If you want to report bugs, or something more, just [open an issue](https://github.com/originalFactor/QwenBotQ/issues)!
+请重命名`.env.prod.example`为`.env.prod`，并更改其内的值。

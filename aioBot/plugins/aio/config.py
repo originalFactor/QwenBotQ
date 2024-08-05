@@ -5,9 +5,9 @@ class Config(BaseModel):
     mongo_uri : str = 'mongodb://127.0.0.1:27017'
     mongo_db : str = 'aioBot'
     dashscope_api_key : str
-    supermgr_id : str = Field(strict=False)
-    supermgr_nick : str
+    supermgr_id : str
     system_prompt : str = 'You are a smart assistant.'
+    system_reset_command : str = 'initialize'
 
     @field_validator('supermgr_id')
     @classmethod
