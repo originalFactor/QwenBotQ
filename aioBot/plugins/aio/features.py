@@ -1,6 +1,6 @@
 from nonebot import on_command
 from nonebot.adapters.onebot.v11 import Message, MessageSegment, MessageEvent, Bot, GroupMessageEvent
-from nonebot.params import CommandArg
+from nonebot.params import CommandArg, EventMessage
 import dashscope
 from http import HTTPStatus
 from random import randint, choice
@@ -175,7 +175,7 @@ signMatcher = on_command('sign')
 @signMatcher.handle()
 async def sign(event:MessageEvent, bot:Bot):
     user = await getUserFromId(event.user_id, bot)
-    if not stillVaild(user.last_signed_date):
+    if not await stillVaild(user.last_signed_date):
         coins = randint(config.daily_sign_min_coins, config.daily_sign_max_coins)
         user.coins += coins
         user.last_signed_date = datetime.now()
