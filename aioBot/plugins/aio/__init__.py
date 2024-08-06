@@ -8,7 +8,8 @@ __plugin_meta__ = PluginMetadata(
     usage="@bot /help",
     type="application",
     config=Config,
-    homepage="https://github.com/originalFactor/QwenBotQ/"
+    homepage="https://github.com/originalFactor/QwenBotQ/",
+    supported_adapters={"nonebot-adapter-onebot"}
 )
 
 config = get_plugin_config(Config)

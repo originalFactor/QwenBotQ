@@ -1,9 +1,12 @@
 from motor.motor_asyncio import AsyncIOMotorClient
-from pydantic import BaseModel, field_validator
-from httpx import AsyncClient
 from . import config
 from typing import Union, List
-from datetime import datetime, timedelta
+from .utils import *
+from pydantic import BaseModel, field_validator
+from httpx import AsyncClient
+from os.path import isdir
+from os import mkdir, listdir
+from nonebot import logger
 
 class User(BaseModel):
     id : str
@@ -13,15 +16,43 @@ class User(BaseModel):
     coins : int = 0
     last_signed_date : datetime = datetime(1970,1,1)
 
+    async def get_avatar_path(self)->Union[str,None]:
+        if not isdir('cache'): mkdir('cache')
+        base_dir = f'cache/{self.id}'
+        if not isdir(base_dir): mkdir(base_dir)
+        files = listdir(base_dir)
+        return files[0] if files else None
+    
     @property
     async def avatar(self)->bytes:
-        return (await AsyncClient().get(f"http://q1.qlogo.cn/g?b=qq&nk={self.id}&s=640")).content
+        file = await self.get_avatar_path()
+        if not file or not stillVaild(datetime.fromtimestamp(float(file.split('.')[0]))):
+            try:
+                resp = await AsyncClient().get(f"http://q1.qlogo.cn/g?b=qq&nk={self.id}&s=640")
+                if resp.status_code==200:
+                    content = resp.content
+                    with open(f'cache/{self.id}/{int(datetime.now().timestamp())}.png', 'wb') as f:
+                        f.write(content)
+                    return content
+                else:
+                    logger.warning(
+                        f'Avatar download failed because server returned an unexpected status code {resp.status_code}, '
+                        'using the old one.'
+                    )
+            except Exception as e:
+                logger.warning(f'Avartar download failed because client side network error, using the old one.')
+        if file:
+            with open(file, 'rb') as f:
+                return f.read()
+        return b''
 
     @property
-    async def couple(self)->Union[str,None]:
-        if cp := await findCouple(self.id):
-            return cp.B if cp.A==self.id else cp.A
-        return None
+    async def couple(self)->Union["Couple",None]:
+        return await findCouple(self.id)
+    
+    @property
+    async def sign_expire(self)->datetime:
+        return self.last_signed_date+timedelta(1)
 
     @field_validator('permission')
     @classmethod
@@ -35,6 +66,13 @@ class Couple(BaseModel):
     B : str
     date : datetime
 
+    async def opposite(self, me:str)->str:
+        return self.A if self.B==me else self.B
+    
+    @property
+    async def expire(self)->datetime:
+        return self.date+timedelta(1)
+
 database = AsyncIOMotorClient(config.mongo_uri)[config.mongo_db]
 
 users = database['users']
@@ -45,12 +83,12 @@ async def isFirstTime():
     if users.find_one({}):
         await users.delete_many({})
         await users.drop_indexes()
-    await users.insert_one(User(id=config.supermgr_id,nick='',permission=999).model_dump())
+    await users.insert_many([User(id=_,nick='',permission=999).model_dump() for _ in config.supermgr_ids])
     await users.create_index('id', unique=True)
     if couples.find_one({}):
         await couples.delete_many({})
         await couples.drop_indexes()
-    await couples.insert_one(Couple(A='0',B='0',date=datetime(2000,1,1)).model_dump())
+    await couples.insert_one(Couple(A='0',B='0',date=datetime.fromtimestamp(0)).model_dump())
     await couples.create_index(['A','B'], unique=True)
 
 async def getUser(id:str)->Union[User, None]:
@@ -64,23 +102,16 @@ async def createUser(user:User):
 async def updateUser(user:User):
     await users.update_one({'id':user.id},{'$set': user.model_dump()})
 
-async def findCoupleX(x:Union[str,None])->Union[Couple,None]:
+async def findCouple(x:Union[str,None], invaild:bool=False)->Union[Couple,None]:
     tmp = await couples.find_one({'$or': [{'A': x}, {'B': x}]})
-    return (Couple(**tmp) if tmp else None)
+    return Couple(**tmp) if tmp and (invaild or await stillVaild(tmp['date'])) else None
 
-async def findCouple(x:Union[str,None])->Union[Couple,None]:
-    cp = await findCoupleX(x) if x else None
-    return cp if cp and cp.date>=datetime.today()-timedelta(1) else None
+async def rmCouple(cp:Couple):
+    await couples.delete_many(cp.model_dump(exclude={'date'}))
 
-async def rmCouple(a:Union[str,None], b:Union[str,None]):
-    if A := await findCoupleX(a):
-        await couples.delete_one(A.model_dump(exclude={'date'}))
-    if B := await findCoupleX(b):
-        await couples.delete_one(B.model_dump(exclude={'date'}))
-
-async def useCouple(a:str, b:str):
-    await rmCouple(a,b)
-    await couples.insert_one(Couple(A=a,B=b,date=datetime.now()).model_dump())
+async def useCouple(cp:Couple):
+    await rmCouple(cp)
+    await couples.insert_one(cp.model_dump())
 
 async def getTop10Users()->List[User]:
     result = []
