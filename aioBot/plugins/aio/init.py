@@ -23,6 +23,11 @@ async def helpMsg(event:MessageEvent, bot:Bot):
 欢迎使用 AIO 机器人！
 GitHub Repository: https://github.com/originalFactor/QwenBotQ/
 
+方舟功能：
+`方舟抽卡` 朴素的十连
+`方舟十连` 华丽的十连
+该功能由外部插件提供支持！
+
 AI功能：
 `/llm <msg>` 通义千问回复
 `/prompt <msg>` 设置**全局**专属系统提示词，仅对你的消息有效

@@ -10,4 +10,4 @@ adapters = [
     {name = "OneBot V11", module_name = "nonebot.adapters.onebot.v11"}
 ]
 plugin_dirs = ["aioBot/plugins"]
-plugins = ["nonebot_plugin_wordcloud"]
+plugins = ["nonebot_plugin_wordcloud", "nonebot_plugin_arkgacha"]
