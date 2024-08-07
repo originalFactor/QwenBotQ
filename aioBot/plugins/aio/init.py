@@ -1,7 +1,7 @@
 from nonebot import on_command
 from nonebot.rule import to_me
 from nonebot.permission import SUPERUSER
-from nonebot.adapters.onebot.v11 import MessageSegment, MessageEvent, Bot
+from nonebot.adapters.onebot.v11 import MessageSegment, Bot, GroupMessageEvent
 from asyncio import sleep
 from .database import isFirstTime
 from . import config
@@ -9,14 +9,14 @@ from . import config
 # [TO ME] `/init`
 init = on_command('init',to_me(),permission=SUPERUSER)
 @init.handle()
-async def checkInit(event:MessageEvent):
+async def checkInit(event:GroupMessageEvent):
     await isFirstTime()
     await init.finish(MessageSegment.at(event.user_id)+'\n已尝试初始化数据库。')
 
 # [TO ME] `/help`
 help = on_command('help')
 @help.handle()
-async def helpMsg(event:MessageEvent, bot:Bot):
+async def helpMsg(event:GroupMessageEvent, bot:Bot):
     msg = (await help.send(
         MessageSegment.at(event.user_id)+
         '''

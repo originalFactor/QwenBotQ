@@ -1,5 +1,5 @@
 from nonebot import on_command
-from nonebot.adapters.onebot.v11 import Message, MessageSegment, MessageEvent, Bot, GroupMessageEvent
+from nonebot.adapters.onebot.v11 import Message, MessageSegment, Bot, GroupMessageEvent
 from nonebot.params import CommandArg, EventMessage
 import dashscope
 from http import HTTPStatus
@@ -34,7 +34,7 @@ async def getUserFromId(id:int, bot:Bot)->User:
 # [PUBLIC] Message Handler
 autoReply = on_command('llm')
 @autoReply.handle()
-async def autoReplyHandler(bot:Bot, event:MessageEvent, args:Message = CommandArg()):
+async def autoReplyHandler(bot:Bot, event:GroupMessageEvent, args:Message = CommandArg()):
     userRequest = args.extract_plain_text()
     user = await getUserFromId(event.user_id, bot)
     if userRequest:
@@ -62,7 +62,7 @@ async def autoReplyHandler(bot:Bot, event:MessageEvent, args:Message = CommandAr
 # [PUBLIC] `/setPrompt`
 setPromptMatcher = on_command('prompt')
 @setPromptMatcher.handle()
-async def setPrompt(event:MessageEvent, bot:Bot, args:Message = CommandArg()):
+async def setPrompt(event:GroupMessageEvent, bot:Bot, args:Message = CommandArg()):
     user = await getUserFromId(event.user_id, bot)
     user.system_prompt = args.extract_plain_text()
     await updateUser(user)
@@ -71,7 +71,7 @@ async def setPrompt(event:MessageEvent, bot:Bot, args:Message = CommandArg()):
 # [PUBLIC] `/getInformation`
 getInformationMatcher = on_command('info')
 @getInformationMatcher.handle()
-async def getInformation(event:MessageEvent, bot:Bot, args:Message = CommandArg()):
+async def getInformation(event:GroupMessageEvent, bot:Bot, args:Message = CommandArg()):
     user = await getUserFromId(
         int(args['at',0].data['qq'] if args['at'] else event.user_id),
         bot
@@ -114,7 +114,7 @@ async def getInformation(event:MessageEvent, bot:Bot, args:Message = CommandArg(
 # [SUPER] `/grantPermission`
 grantPermissionMatcher = on_command('grant')
 @grantPermissionMatcher.handle()
-async def grantPermission(event:MessageEvent, bot:Bot, args:Message = CommandArg()):
+async def grantPermission(event:GroupMessageEvent, bot:Bot, args:Message = CommandArg()):
     user = await getUserFromId(event.user_id, bot)
     if user.permission>1:
         target = await getUserFromId(int(args["at",0].data["qq"]), bot)
@@ -126,7 +126,7 @@ async def grantPermission(event:MessageEvent, bot:Bot, args:Message = CommandArg
 # [SUPER] `/bind`
 bindMatcher = on_command('bind')
 @bindMatcher.handle()
-async def bind(event:MessageEvent, bot:Bot, args:Message = CommandArg()):
+async def bind(event:GroupMessageEvent, bot:Bot, args:Message = CommandArg()):
     if (await getUserFromId(event.user_id, bot)).permission>0:
         await useCouple(Couple(A=args['at',0].data['qq'],B=args['at',1].data['qq'],date=datetime.now()))
         await bindMatcher.finish(MessageSegment.at(event.user_id)+'\n已尝试绑定CP！')
@@ -173,7 +173,7 @@ async def groupMembers(event:GroupMessageEvent, bot:Bot):
 # [PUBLIC] `/sign`
 signMatcher = on_command('sign')
 @signMatcher.handle()
-async def sign(event:MessageEvent, bot:Bot):
+async def sign(event:GroupMessageEvent, bot:Bot):
     user = await getUserFromId(event.user_id, bot)
     if not await stillVaild(user.last_signed_date):
         coins = randint(config.daily_sign_min_coins, config.daily_sign_max_coins)
@@ -186,7 +186,7 @@ async def sign(event:MessageEvent, bot:Bot):
 # [PUBLIC] `/rank`
 rankMatcher = on_command('rank')
 @rankMatcher.handle()
-async def rank(event:MessageEvent):
+async def rank(event:GroupMessageEvent):
     users = await getTop10Users()
     await rankMatcher.finish(
         MessageSegment.at(event.user_id)+
@@ -204,7 +204,7 @@ async def rank(event:MessageEvent):
 # [PUBLIC] `/refresh`
 refreshMatcher = on_command('refresh')
 @refreshMatcher.handle()
-async def refresh(event:MessageEvent, bot:Bot):
+async def refresh(event:GroupMessageEvent, bot:Bot):
     user = await getUserFromId(event.user_id, bot)
     if user.coins>=config.refresh_price:
         if couple := await user.couple:

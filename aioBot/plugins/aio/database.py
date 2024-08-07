@@ -4,8 +4,8 @@ from typing import Union, List
 from .utils import *
 from pydantic import BaseModel, field_validator
 from httpx import AsyncClient
-from os.path import isdir
-from os import mkdir, listdir
+from os.path import isdir, split
+from os import mkdir, listdir, remove
 from nonebot import logger
 
 class User(BaseModel):
@@ -21,16 +21,17 @@ class User(BaseModel):
         base_dir = f'cache/{self.id}'
         if not isdir(base_dir): mkdir(base_dir)
         files = listdir(base_dir)
-        return files[0] if files else None
+        return base_dir+'/'+files[0] if files else None
     
     @property
     async def avatar(self)->bytes:
         file = await self.get_avatar_path()
-        if not file or not stillVaild(datetime.fromtimestamp(float(file.split('.')[0]))):
+        if not file or not stillVaild(datetime.fromtimestamp(float(split(file)[1].split('.')[0]))):
             try:
                 resp = await AsyncClient().get(f"http://q1.qlogo.cn/g?b=qq&nk={self.id}&s=640")
                 if resp.status_code==200:
                     content = resp.content
+                    if file: remove(file)
                     with open(f'cache/{self.id}/{int(datetime.now().timestamp())}.png', 'wb') as f:
                         f.write(content)
                     return content
