@@ -26,7 +26,7 @@ class User(BaseModel):
     @property
     async def avatar(self)->bytes:
         file = await self.get_avatar_path()
-        if not file or not stillVaild(datetime.fromtimestamp(float(split(file)[1].split('.')[0]))):
+        if not file or not await stillVaild(datetime.fromtimestamp(float(split(file)[1].split('.')[0]))):
             try:
                 resp = await AsyncClient().get(f"http://q1.qlogo.cn/g?b=qq&nk={self.id}&s=640")
                 if resp.status_code==200:
@@ -90,7 +90,8 @@ async def isFirstTime():
         await couples.delete_many({})
         await couples.drop_indexes()
     await couples.insert_one(Couple(A='0',B='0',date=datetime.fromtimestamp(0)).model_dump())
-    await couples.create_index(['A','B'], unique=True)
+    await couples.create_index(['A'], unique=True)
+    await couples.create_index(['B'], unique=True)
 
 async def getUser(id:str)->Union[User, None]:
     if user := await users.find_one({'id':id}):
@@ -108,7 +109,15 @@ async def findCouple(x:Union[str,None], invaild:bool=False)->Union[Couple,None]:
     return Couple(**tmp) if tmp and (invaild or await stillVaild(tmp['date'])) else None
 
 async def rmCouple(cp:Couple):
-    await couples.delete_many(cp.model_dump(exclude={'date'}))
+    await couples.delete_many({
+        "$or": (
+            ([_.model_dump()] if (_ := await findCouple(cp.A)) else [])
+            +
+            ([_.model_dump()] if (_ := await findCouple(cp.B)) else [])
+            +
+            [{'date': datetime.fromtimestamp(0)}]
+        )
+    })
 
 async def useCouple(cp:Couple):
     await rmCouple(cp)
