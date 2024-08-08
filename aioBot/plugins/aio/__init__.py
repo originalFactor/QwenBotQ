@@ -14,5 +14,5 @@ __plugin_meta__ = PluginMetadata(
 
 config = get_plugin_config(Config)
 
-from .features import *
+from .bot import *
 from .init import *
