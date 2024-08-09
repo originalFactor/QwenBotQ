@@ -111,9 +111,9 @@ async def findCouple(x:Union[str,None], invaild:bool=False)->Union[Couple,None]:
 async def rmCouple(cp:Couple):
     await couples.delete_many({
         "$or": (
-            ([_.model_dump()] if (_ := await findCouple(cp.A)) else [])
+            ([_.model_dump()] if (_ := await findCouple(cp.A, True)) else [])
             +
-            ([_.model_dump()] if (_ := await findCouple(cp.B)) else [])
+            ([_.model_dump()] if (_ := await findCouple(cp.B, True)) else [])
             +
             [{'date': datetime.fromtimestamp(0)}]
         )

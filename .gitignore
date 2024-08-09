@@ -1,3 +1,4 @@
 .env.prod
 **/__pycache__
 cache/
+.python-version
