@@ -1,3 +1,20 @@
+# Copyright (C) 2024 originalFactor
+# 
+# This file is part of QwenBotQ.
+# 
+# QwenBotQ is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# QwenBotQ is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with QwenBotQ.  If not, see <https://www.gnu.org/licenses/>.
+
 from nonebot import on_command
 from nonebot.adapters.onebot.v11 import MessageSegment, Bot, GroupMessageEvent
 from nonebot.params import Depends
@@ -78,7 +95,7 @@ async def getInformation(
             bot
         )
     await getInformationMatcher.finish(
-        (await at(user.id))+
+        (await at(send_user.id))+
         '\n{id}的用户信息：\n'
         '昵称：{nick}\n'
         '积分：{coins}\n'
@@ -200,7 +217,9 @@ async def sign(user:Annotated[User,Depends(require())]):
         )
     await signMatcher.finish(
         (await at(user.id))+
-        "\n本日已签到！请勿重复签到"
+        "\n本日已签到！请勿重复签到！\n"
+        '最近一次签到的过期时间：\n'+
+        (await user.sign_expire).strftime("%Y/%m/%d %H:%M:%S")
     )
 
 # [PUBLIC] `/rank`
@@ -273,5 +292,50 @@ async def transfer(
         )
     await transferMatcher.finish(
         (await at(user.id))+
-        f'积分余额不足以转账{arg}积分！'
+        f'\n您的积分余额不足以转账{arg}积分！'
+    )
+
+# [SYNC] `/fork`
+getMsgMatcher = on_command('fork')
+@getMsgMatcher.handle()
+async def getMsg(
+    user:Annotated[User,Depends(require(0,config.fork_cost))],
+    replied:Annotated[GetMsgResult,Depends(reply(True))],
+    bot:Bot
+    ):
+    if replied.sender.user_id not in config.trusted_wife_source:
+        await getMsgMatcher.finish(
+            (await at(user.id))+
+            '\n请使用可信的数据源！'
+        )
+    sendUser = await getUserFromId(replied.message['at',0].data['qq'],bot)
+    userWife = await getUserFromId(replied.message.extract_plain_text().split('(')[1].split(')')[0],bot)
+    await useCouple(Couple(A=sendUser.id,B=userWife.id,date=datetime.now()))
+    await getMsgMatcher.finish(
+        (await at(user.id))+
+        '\n已成功绑定\n'
+        f'{sendUser.nick} ({sendUser.id})\n'
+        '和\n'
+        f'{userWife.nick} ({userWife.id})\n'
+        '的关系！(来自外部数据)'
+    )
+
+# [PUBLIC] `/renew`
+renewM = on_command('renew')
+@renewM.handle()
+async def renew(
+    user : Annotated[User, Depends(require(0, config.renew_cost))],
+    bot : Bot
+):
+    if cp := await user.couple:
+        cp.date += timedelta(1)
+        await useCouple(cp)
+        wife = await getUserFromId(await cp.opposite(user.id), bot)
+    else: wife = None
+    await renewM.finish(
+        (await at(user.id))+
+        '\n已成功续期您和\n'
+        f'{f"{wife.nick} ({wife.id})" if wife else "未绑定或已过期"}\n'
+        '的关系至\n'
+        f'{(await cp.expire).strftime("%Y/%m/%d %H:%M:%S") if cp else "无数据"}'
     )

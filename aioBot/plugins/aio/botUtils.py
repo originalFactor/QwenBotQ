@@ -1,7 +1,27 @@
+# Copyright (C) 2024 originalFactor
+# 
+# This file is part of QwenBotQ.
+# 
+# QwenBotQ is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# QwenBotQ is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with QwenBotQ.  If not, see <https://www.gnu.org/licenses/>.
+
 from typing import Union, Annotated, List
 from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, MessageSegment, Message
+from nonebot.adapters.onebot.v11.event import Sender
 from nonebot.matcher import Matcher
-from nonebot.params import CommandArg, Depends
+from nonebot.params import CommandArg
+from pydantic import BaseModel
+from enum import Enum
 from .database import *
 
 # Get user nick
@@ -83,3 +103,35 @@ def mentioned(least:int=0):
             )
         return mentioned_users
     return _mentioned
+
+class MessageType(str, Enum):
+    private = "private"
+    group = "group"
+class GetMsgResult(BaseModel):
+    time : int
+    message_type : MessageType
+    message_id : int
+    real_id : int
+    sender : Sender
+    message : Message
+
+# reply dependency
+def reply(required:bool=False):
+    async def _reply(matcher:Matcher, bot:Bot, event:GroupMessageEvent)->Union[GetMsgResult,None]:
+        if required and not event.original_message['reply']:
+            await matcher.finish(
+                (await at(event.user_id))+
+                "\n必须回复一条消息才能使用此功能"
+            )
+        return (
+            GetMsgResult(
+                **(
+                    await bot.get_msg(
+                        message_id=event.original_message['reply',0].data['id']
+                    )
+                )
+            )
+            if event.original_message['reply'] 
+            else None
+        )
+    return _reply

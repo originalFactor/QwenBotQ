@@ -17,8 +17,26 @@
  along with QwenBotQ.  If not, see <https://www.gnu.org/licenses/>.
 -->
 
-# QQ 娱乐机器人
+# QQ娱乐机器人
 
-使用Nonebot+LLOneBot驱动的娱乐型QQ机器人
+基于Nonebot框架和Onebot V11协议的QQ机器人。
 
-具体功能请查看[项目文档](https://originalFactor.github.io/QwenBotQ/)
+具有花式功能（需要啥功能可以发Issue）。
+
+## 功能介绍
+
+### AI功能
+
+使用阿里云Dashscope灵积平台通义千问`qwen-max-longcontext`通义千问2.5-30K上下文版驱动，支持用户自定义提示词，支持消费积分回复。
+
+## 个人中心
+
+每日签到、积分排行、每日老婆、积分转账，应有尽有。
+
+## 超管功能
+
+等级森严，高度可配置。
+
+## 更多功能
+
+更有由`nonebot-plugin-arkgacha`提供的明日方舟模拟抽卡功能和`nonebot-plugin-wordcloud`提供的词云功能。

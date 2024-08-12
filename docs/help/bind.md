@@ -17,8 +17,29 @@
  along with QwenBotQ.  If not, see <https://www.gnu.org/licenses/>.
 -->
 
-# QQ 娱乐机器人
+# `/bind <@a> <@b>`
 
-使用Nonebot+LLOneBot驱动的娱乐型QQ机器人
+## 参数
+| 参数 | 类型 | 必须 | 解释      | 示例     | 默认 |
+|------|------|------|-----------|----------|------|
+| `@a` | at   |  是  | 绑定对象A | @someone | 无   |
+| `@b` | at   |  是  | 绑定对象B | @someone | 无   |
 
-具体功能请查看[项目文档](https://originalFactor.github.io/QwenBotQ/)
+## 其他需求
+
+### 发送人用户信息
+| 属性 | 要求         | 解释     | 默认 |
+|------|--------------|----------|------|
+| 权限 | >= 1         | 超管     | 0    |
+| 积分 | >= bind_cost | 消耗积分 | 0    |
+
+## 返回
+```
+@sender
+已尝试绑定
+a.nick (a.id)
+和
+b.nick (b.id)
+为本日CP！
+有效期至：YYYY/MM/DD HH:MM:SS
+```

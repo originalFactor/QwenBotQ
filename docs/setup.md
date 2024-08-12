@@ -17,8 +17,5 @@
  along with QwenBotQ.  If not, see <https://www.gnu.org/licenses/>.
 -->
 
-# QQ 娱乐机器人
+# 安装
 
-使用Nonebot+LLOneBot驱动的娱乐型QQ机器人
-
-具体功能请查看[项目文档](https://originalFactor.github.io/QwenBotQ/)

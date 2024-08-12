@@ -1,0 +1,130 @@
+<!--
+ Copyright (C) 2024 originalFactor
+ 
+ This file is part of QwenBotQ.
+ 
+ QwenBotQ is free software: you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation, either version 3 of the License, or
+ (at your option) any later version.
+ 
+ QwenBotQ is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+ 
+ You should have received a copy of the GNU General Public License
+ along with QwenBotQ.  If not, see <https://www.gnu.org/licenses/>.
+-->
+
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>QQ娱乐机器人</title>
+    <link rel="stylesheet" href="https://cdnjs.onmicrosoft.cn/ajax/libs/docute/4.23.3/docute.min.css">
+  </head>
+  <body>
+    <div id="docute"></div>
+    <script src="https://cdnjs.onmicrosoft.cn/ajax/libs/docute/4.23.3/docute.min.js"></script>
+    <script>
+      new Docute({
+        target: '#docute',
+        nav: [
+            {
+                title: '首页',
+                link: '/'
+            },
+            {
+                title: 'GitHub',
+                link: 'https://github.com/originalFactor/QwenBotQ/'
+            }
+        ],
+        layout: 'wide',
+        sidebar: [
+            {
+                title: 'QwenBotQ',
+                children: [
+                    {
+                        title: '安装',
+                        link: '/setup'
+                    }
+                ]
+            }
+        ],
+        overrides: {
+            '/': {
+                language: '项目文档'
+            },
+            '/help/': {
+                language: '命令帮助',
+                sidebar: [
+                    {
+                        title: '介绍',
+                        link: '/help/'
+                    },
+                    {
+                        title: '命令文档',
+                        children: [
+                            {
+                                title: 'llm',
+                                link: '/help/llm'
+                            },
+                            {
+                                title: 'prompt',
+                                link: '/help/prompt'
+                            },
+                            {
+                                title: 'wife',
+                                link: '/help/wife'
+                            },
+                            {
+                                title: 'refresh',
+                                link: '/help/refresh'
+                            },
+                            {
+                                title: 'fork',
+                                link: '/help/fork'
+                            },
+                            {
+                                title: 'renew',
+                                link: '/help/renew'
+                            },
+                            {
+                                title: 'info',
+                                link: '/help/info'
+                            },
+                            {
+                                title: 'sign',
+                                link: '/help/sign'
+                            },
+                            {
+                                title: 'transfer',
+                                link: '/help/transfer'
+                            },
+                            {
+                                title: 'rank',
+                                link: '/help/rank'
+                            },
+                            {
+                                title: 'grant',
+                                link: '/help/grant'
+                            },
+                            {
+                                title: 'bind',
+                                link: '/help/bind'
+                            },
+                            {
+                                title: 'charge',
+                                link: '/help/charge'
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+      })
+    </script>
+  </body>
+</html>
