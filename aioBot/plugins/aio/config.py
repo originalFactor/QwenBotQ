@@ -32,6 +32,7 @@ class Config(BaseModel):
     system_prompt : str = 'You are a smart assistant.' # 默认系统提示词
     llm_cost : int = 1 # 通义千问价格
     set_prompt_cost : int = 1 # 设置提示词价格
+    model : str = "qwen-plus"
 
     # 个人中心
     daily_sign_max_coins : int = 5 # 每日签到最大获得积分数

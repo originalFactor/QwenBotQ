@@ -38,5 +38,5 @@ async def helpMsg(event:GroupMessageEvent, bot:Bot):
         MessageSegment.at(event.user_id)+
         "\n欢迎使用QQ娱乐机器人！\n"
         "请查看官方命令指南：\n"
-        "https://originalFactor.github.io/QwenBotQ/#/help/"
+        "http://qwenbotq.us.to/#/help/"
     )

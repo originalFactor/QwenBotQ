@@ -27,7 +27,6 @@ from nonebot import logger
 
 class User(BaseModel):
     id : str
-    nick : str
     permission : int = 0
     system_prompt : str = config.system_prompt
     coins : int = 0
@@ -97,29 +96,31 @@ users = database['users']
 
 couples = database['couples']
 
+nicks = database['nicks']
+
 async def isFirstTime():
-    if users.find_one({}):
-        await users.delete_many({})
-        await users.drop_indexes()
-    await users.insert_many([User(id=_,nick='',permission=999).model_dump() for _ in config.supermgr_ids])
+    await users.delete_many({})
+    await users.drop_indexes()
+    await users.insert_many([User(id=_,permission=999).model_dump() for _ in config.supermgr_ids])
     await users.create_index('id', unique=True)
-    if couples.find_one({}):
-        await couples.delete_many({})
-        await couples.drop_indexes()
+    await couples.delete_many({})
+    await couples.drop_indexes()
     await couples.insert_one(Couple(A='0',B='0',date=datetime.fromtimestamp(0)).model_dump())
     await couples.create_index(['A'], unique=True)
     await couples.create_index(['B'], unique=True)
+    await nicks.delete_many({})
+    await nicks.create_index('id', unique=True)
 
-async def getUser(id:str)->Union[User, None]:
-    if user := await users.find_one({'id':id}):
-        return User(**user)
-    return None
+async def getUser(id:Union[str,int])->User:
+    if _ := await users.find_one({'id':str(id)}):
+        user = User(**_)
+    return user if user else User(id=str(id))
 
-async def createUser(user:User):
-    await users.insert_one(user.model_dump())
+async def createUser(user:Union[User, "UserWithNick"]):
+    await users.insert_one((await uwn2u(user)).model_dump())
 
-async def updateUser(user:User):
-    await users.update_one({'id':user.id},{'$set': user.model_dump()})
+async def updateUser(user:Union[User, "UserWithNick"]):
+    await users.update_one({'id':user.id},{'$set': (await uwn2u(user)).model_dump()})
 
 async def findCouple(x:Union[str,None], invaild:bool=False)->Union[Couple,None]:
     tmp = await couples.find_one({'$or': [{'A': x}, {'B': x}]})
@@ -127,13 +128,12 @@ async def findCouple(x:Union[str,None], invaild:bool=False)->Union[Couple,None]:
 
 async def rmCouple(cp:Couple):
     await couples.delete_many({
-        "$or": (
-            ([_.model_dump()] if (_ := await findCouple(cp.A, True)) else [])
-            +
-            ([_.model_dump()] if (_ := await findCouple(cp.B, True)) else [])
-            +
-            [{'date': datetime.fromtimestamp(0)}]
-        )
+        "$or": [
+            {'A': cp.A},
+            {'A': cp.B},
+            {'B': cp.A},
+            {'B': cp.B}
+        ]
     })
 
 async def useCouple(cp:Couple):
@@ -145,3 +145,25 @@ async def getTop10Users()->List[User]:
     async for document in users.find({}).sort('coins',-1).limit(10):
         result.append(User(**document))
     return result
+
+class NickCache(BaseModel):
+    id : str
+    nick : str
+    created : datetime
+
+async def getNick(id:str, invaild:bool = False)->Union[NickCache, None]:
+    return NickCache(**_) if (_ := await nicks.find_one({'id': id})) and (invaild or stillVaild(_['created'])) else None
+
+async def rmNick(id:str):
+    await nicks.delete_many({'id': id})
+
+async def useNick(nick: NickCache):
+    await rmNick(nick.id)
+    await nicks.insert_one(nick.model_dump())
+
+class UserWithNick(User):
+    nick : str
+
+# convert userwithnick into user
+async def uwn2u(user:Union[User, UserWithNick])->User:
+    return User(**user.model_dump())

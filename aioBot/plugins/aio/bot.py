@@ -34,12 +34,12 @@ dashscope.api_key = config.dashscope_api_key
 autoReply = on_command('llm')
 @autoReply.handle()
 async def autoReplyHandler(
-        user:Annotated[User, Depends(require(0,config.llm_cost))], 
+        user:Annotated[UserWithNick, Depends(require(0,config.llm_cost))], 
         request:Annotated[str, Depends(arg(str))]
         ):
     if request:
         response = dashscope.Generation.call(
-            model="qwen-max-longcontext",
+            model=config.model,
             messages=[
                 {'role': 'system', 'content': user.system_prompt}, # type: ignore
                 {'role': 'user', 'content': request}
@@ -51,7 +51,6 @@ async def autoReplyHandler(
             result_format='message'
         )
         if response.status_code == HTTPStatus.OK: # type: ignore
-            await updateUser(user)
             await autoReply.finish(
                 (await at(user.id))+
                 f'\n大模型回答：\n'+
@@ -70,7 +69,7 @@ async def autoReplyHandler(
 setPromptMatcher = on_command('prompt')
 @setPromptMatcher.handle()
 async def setPrompt(
-    user : Annotated[User, Depends(require(0,config.set_prompt_cost))],
+    user : Annotated[UserWithNick, Depends(require(0,config.set_prompt_cost))],
     prompt : Annotated[str, Depends(arg(str))]
 ):
     user.system_prompt = prompt
@@ -84,16 +83,15 @@ async def setPrompt(
 getInformationMatcher = on_command('info')
 @getInformationMatcher.handle()
 async def getInformation(
-    send_user : Annotated[User, Depends(require())],
-    mention : Annotated[List[User], Depends(mentioned())],
+    send_user : Annotated[UserWithNick, Depends(require())],
+    mention : Annotated[List[UserWithNick], Depends(mentioned())],
     bot : Bot
 ):
     user = mention[0] if mention else send_user
     if couple := await user.couple:
-        coupleUser = await getUserFromId(
-            (await couple.opposite(user.id)),
-            bot
-        )
+        coupleUser = await u2uwn(await getUser(
+            (await couple.opposite(user.id))
+        ),bot)
     await getInformationMatcher.finish(
         (await at(send_user.id))+
         '\n{id}的用户信息：\n'
@@ -128,8 +126,8 @@ async def getInformation(
 grantPermissionMatcher = on_command('grant')
 @grantPermissionMatcher.handle()
 async def grantPermission(
-    user : Annotated[User, Depends(require(2,config.grant_cost))], 
-    mention : Annotated[List[User], Depends(mentioned(1))]
+    user : Annotated[UserWithNick, Depends(require(2,config.grant_cost))], 
+    mention : Annotated[List[UserWithNick], Depends(mentioned(1))]
 ):
     mention[0].permission = max(user.permission-1, mention[0].permission)
     await updateUser(mention[0])
@@ -143,8 +141,8 @@ async def grantPermission(
 bindMatcher = on_command('bind')
 @bindMatcher.handle()
 async def bind(
-    user : Annotated[User, Depends(require(1,config.bind_cost))],
-    mention : Annotated[List[User], Depends(mentioned(2))]
+    user : Annotated[UserWithNick, Depends(require(1,config.bind_cost))],
+    mention : Annotated[List[UserWithNick], Depends(mentioned(2))]
 ):
     cp = Couple(A=mention[0].id,B=mention[1].id,date=datetime.now())
     await useCouple(cp)
@@ -162,15 +160,15 @@ async def bind(
 wifeMatcher = on_command('wife')
 @wifeMatcher.handle()
 async def wife(
-    user : Annotated[User, Depends(require())],
+    user : Annotated[UserWithNick, Depends(require())],
     event : GroupMessageEvent,
     bot : Bot
 ):
     if myWife := await user.couple:
-        myWifeInfo = await getUserFromId(await myWife.opposite(user.id), bot)
+        myWifeInfo = await u2uwn(await getUser(await myWife.opposite(user.id)), bot)
     else:
         x = choice(await bot.get_group_member_list(group_id=event.group_id))
-        myWifeInfo = await getUserFromId(x['user_id'], bot)
+        myWifeInfo = await u2uwn(await getUser(x['user_id']), bot)
         myWife = Couple(A=user.id,B=myWifeInfo.id,date=datetime.now())
         await useCouple(myWife)
     await wifeMatcher.finish(
@@ -205,7 +203,7 @@ async def groupMembers(event:GroupMessageEvent, bot:Bot):
 # [PUBLIC] `/sign`
 signMatcher = on_command('sign')
 @signMatcher.handle()
-async def sign(user:Annotated[User,Depends(require())]):
+async def sign(user:Annotated[UserWithNick,Depends(require())]):
     if not await stillVaild(user.last_signed_date):
         coins = randint(config.daily_sign_min_coins, config.daily_sign_max_coins)
         user.coins += coins
@@ -225,8 +223,8 @@ async def sign(user:Annotated[User,Depends(require())]):
 # [PUBLIC] `/rank`
 rankMatcher = on_command('rank')
 @rankMatcher.handle()
-async def rank(event:GroupMessageEvent):
-    users = await getTop10Users()
+async def rank(event:GroupMessageEvent, bot:Bot):
+    users = [await u2uwn(_, bot) for _ in await getTop10Users()]
     await rankMatcher.finish(
         (await at(event.user_id))+
         '\n积分排行榜：\n'+
@@ -244,12 +242,12 @@ async def rank(event:GroupMessageEvent):
 refreshMatcher = on_command('refresh')
 @refreshMatcher.handle()
 async def refresh(
-    user : Annotated[User, Depends(require(0, config.refresh_price))],
+    user : Annotated[UserWithNick, Depends(require(0, config.refresh_price))],
     bot : Bot
 ):
     if couple := await findCouple(user.id, True):
         await rmCouple(couple)
-    coupleInfo = await getUserFromId(await couple.opposite(user.id), bot) if couple else None
+        coupleInfo = await u2uwn(await getUser(await couple.opposite(user.id)), bot)
     await refreshMatcher.finish(
         (await at(user.id))+
         '\n已解除和\n'
@@ -261,7 +259,7 @@ async def refresh(
 chargeMatcher = on_command('charge')
 @chargeMatcher.handle()
 async def charge(
-    user : Annotated[User, Depends(require(config.charge_min_perm))],
+    user : Annotated[UserWithNick, Depends(require(config.charge_min_perm))],
     arg : Annotated[int, Depends(arg(int))]
 ):
     user.coins += arg
@@ -275,8 +273,8 @@ async def charge(
 transferMatcher = on_command('transfer')
 @transferMatcher.handle()
 async def transfer(
-    user : Annotated[User, Depends(require())],
-    mentions : Annotated[List[User], Depends(mentioned(1))],
+    user : Annotated[UserWithNick, Depends(require())],
+    mentions : Annotated[List[UserWithNick], Depends(mentioned(1))],
     arg : Annotated[int, Depends(arg(int))]
 ):
     if user.coins >= arg:
@@ -299,7 +297,7 @@ async def transfer(
 getMsgMatcher = on_command('fork')
 @getMsgMatcher.handle()
 async def getMsg(
-    user:Annotated[User,Depends(require(0,config.fork_cost))],
+    user:Annotated[UserWithNick,Depends(require(0,config.fork_cost))],
     replied:Annotated[GetMsgResult,Depends(reply(True))],
     bot:Bot
     ):
@@ -308,8 +306,8 @@ async def getMsg(
             (await at(user.id))+
             '\n请使用可信的数据源！'
         )
-    sendUser = await getUserFromId(replied.message['at',0].data['qq'],bot)
-    userWife = await getUserFromId(replied.message.extract_plain_text().split('(')[1].split(')')[0],bot)
+    sendUser = await u2uwn(await getUser(replied.message['at',0].data['qq']),bot)
+    userWife = await u2uwn(await getUser(replied.message.extract_plain_text().split('(')[1].split(')')[0]),bot)
     await useCouple(Couple(A=sendUser.id,B=userWife.id,date=datetime.now()))
     await getMsgMatcher.finish(
         (await at(user.id))+
@@ -317,21 +315,20 @@ async def getMsg(
         f'{sendUser.nick} ({sendUser.id})\n'
         '和\n'
         f'{userWife.nick} ({userWife.id})\n'
-        '的关系！(来自外部数据)'
+        '的关系！(来自可信来源的外部数据)'
     )
 
 # [PUBLIC] `/renew`
 renewM = on_command('renew')
 @renewM.handle()
 async def renew(
-    user : Annotated[User, Depends(require(0, config.renew_cost))],
+    user : Annotated[UserWithNick, Depends(require(0, config.renew_cost))],
     bot : Bot
 ):
     if cp := await user.couple:
         cp.date += timedelta(1)
         await useCouple(cp)
-        wife = await getUserFromId(await cp.opposite(user.id), bot)
-    else: wife = None
+        wife = await u2uwn(await getUser(await cp.opposite(user.id)), bot)
     await renewM.finish(
         (await at(user.id))+
         '\n已成功续期您和\n'

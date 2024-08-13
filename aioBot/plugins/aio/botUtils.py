@@ -25,28 +25,26 @@ from enum import Enum
 from .database import *
 
 # Get user nick
-async def getNick(id:Union[str, int], bot:Bot):
-    return (await bot.get_stranger_info(
-        user_id=int(id)
-    ))['nickname']
-
-# Get user
-async def getUserFromId(id:Union[str, int], bot:Bot)->User:
-    if not (user := await getUser(str(id))):
-        user = User(
-            id=str(id),
-            nick=await getNick(id, bot)
+async def nick(user:User, bot:Bot)->str:
+    if not(_ := await getNick(user.id)):
+        _ = NickCache(
+            id=user.id,
+            nick=(await bot.get_stranger_info(
+                user_id=int(user.id)
+            ))['nickname'],
+            created=datetime.now()
         )
-        await createUser(user)
-    if not user.nick:
-        user.nick = await getNick(id, bot)
-        await updateUser(user)
-    return user
+        await useNick(_)
+    return _.nick
+
+# convert user into userwithnick
+async def u2uwn(user:User, bot:Bot)->UserWithNick:
+    return UserWithNick(**user.model_dump(),nick=await nick(user,bot))
 
 # permission dependency
 def require(cost_permission:int=0, cost_coins:int=0):
-    async def _require(matcher:Matcher, event: GroupMessageEvent, bot:Bot)->User:
-        user = await getUserFromId(event.user_id, bot)
+    async def _require(matcher:Matcher, event: GroupMessageEvent, bot:Bot)->UserWithNick:
+        user = await getUser(event.user_id)
         if user.permission < cost_permission:
             await matcher.finish(
                 (await at(user.id))+
@@ -64,7 +62,7 @@ def require(cost_permission:int=0, cost_coins:int=0):
                 (await at(user.id))+
                 f'\n你已被扣除{cost_coins}点积分以使用本功能'
             )
-        return user
+        return await u2uwn(user, bot)
     return _require
 
 # plain text command argument dependency
@@ -94,8 +92,8 @@ def mentioned(least:int=0):
         bot:Bot, 
         args:Annotated[Message,CommandArg()],
         event:GroupMessageEvent
-    )->List[User]:
-        mentioned_users = list([await getUserFromId(_.data['qq'], bot) for _ in args['at']])
+    )->List[UserWithNick]:
+        mentioned_users = list([await u2uwn(await getUser(_.data['qq']), bot) for _ in args['at']])
         if len(mentioned_users)<least:
             await matcher.finish(
                 (await at(event.user_id))+
