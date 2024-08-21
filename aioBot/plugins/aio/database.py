@@ -113,8 +113,8 @@ async def isFirstTime():
 
 async def getUser(id:Union[str,int])->User:
     if _ := await users.find_one({'id':str(id)}):
-        user = User(**_)
-    return user if user else User(id=str(id))
+        return User(**_)
+    return User(id=str(id))
 
 async def createUser(user:Union[User, "UserWithNick"]):
     await users.insert_one((await uwn2u(user)).model_dump())
@@ -152,7 +152,7 @@ class NickCache(BaseModel):
     created : datetime
 
 async def getNick(id:str, invaild:bool = False)->Union[NickCache, None]:
-    return NickCache(**_) if (_ := await nicks.find_one({'id': id})) and (invaild or stillVaild(_['created'])) else None
+    return NickCache(**_) if (_ := await nicks.find_one({'id': id})) and (invaild or await stillVaild(_['created'])) else None
 
 async def rmNick(id:str):
     await nicks.delete_many({'id': id})
