@@ -17,12 +17,12 @@
 
 'QwenBotQ main body.'
 
+# standard library imports
+from importlib import import_module
 # third-party imports
 from nonebot import get_plugin_config
 from nonebot.plugin import PluginMetadata
 # local imports
-from .init import *
-from .bot import *
 from .config import Config
 
 __plugin_meta__ = PluginMetadata(
@@ -36,3 +36,9 @@ __plugin_meta__ = PluginMetadata(
 )
 
 config = get_plugin_config(Config)
+
+# Load submodules
+import_module(".init", __package__)
+import_module(".bot", __package__)
+
+# 因为auotopep8和pylint都要求在代码之前导入，但是这样就获取不到正确的config对象，所以我只能另辟蹊径了XwX

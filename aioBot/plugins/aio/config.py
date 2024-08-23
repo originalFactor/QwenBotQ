@@ -28,7 +28,8 @@ class Config(BaseModel):
 
     # 通用
     supermgr_ids: List[str] = list(
-        get_driver().config.superusers)  # 超管列表，自动从Nonebot读取
+        get_driver().config.superusers
+    )  # 超管列表，自动从Nonebot读取
 
     # 数据库
     mongo_uri: str = 'mongodb://127.0.0.1:27017'  # 数据库地址
