@@ -47,7 +47,7 @@ from . import config
 dashscope.api_key = config.dashscope_api_key
 
 
-LLMMatcher = on_command('llm')
+LLMMatcher = on_command('召唤秘书')
 
 
 @LLMMatcher.handle()
@@ -85,7 +85,7 @@ async def llm(
     )
 
 
-PromptMatcher = on_command('prompt')
+PromptMatcher = on_command('给我记住了')
 
 
 @PromptMatcher.handle()
@@ -102,7 +102,7 @@ async def set_prompt(
     )
 
 # [PUBLIC] `/info`
-GetInformationMatcher = on_command('info')
+GetInformationMatcher = on_command('给我康康')
 
 
 @GetInformationMatcher.handle()
@@ -141,7 +141,7 @@ async def get_information(
     )
 
 # [SUPER] `/grantPermission`
-GrantMatcher = on_command('grant')
+GrantMatcher = on_command('你现在是我的下级辣')
 
 
 @GrantMatcher.handle()
@@ -159,7 +159,7 @@ async def grant_permission(
     )
 
 # [SUPER] `/bind`
-BindMatcher = on_command('bind')
+BindMatcher = on_command('捆在一起')
 
 
 @BindMatcher.handle()
@@ -184,7 +184,7 @@ async def bind(
     )
 
 # [PUBLIC] `/wife`
-WifeMatcher = on_command('wife')
+WifeMatcher = on_command('我的老公')
 
 
 @WifeMatcher.handle()
@@ -211,7 +211,7 @@ async def wife(
     )
 
 # [PUBLIC] `/groupMembers`
-MembersMatcher = on_command('members')
+MembersMatcher = on_command('这群里都有谁')
 
 
 @MembersMatcher.handle()
@@ -235,7 +235,7 @@ async def group_members(event: GroupMessageEvent, bot: Bot):
     )
 
 # [PUBLIC] `/sign`
-SignMatcher = on_command('sign')
+SignMatcher = on_command('爷的积分')
 
 
 @SignMatcher.handle()
@@ -259,7 +259,7 @@ async def sign(user: Annotated[UserWithNick, Depends(require())]):
     )
 
 # [PUBLIC] `/rank`
-RankMatcher = on_command('rank')
+RankMatcher = on_command('封神榜前十')
 
 
 @RankMatcher.handle()
@@ -280,7 +280,7 @@ async def rank(bot: Bot):
     )
 
 # [PUBLIC] `/refresh`
-RefreshMatcher = on_command('refresh')
+RefreshMatcher = on_command('我不要这个')
 
 
 @RefreshMatcher.handle()
@@ -300,7 +300,7 @@ async def refresh(
     )
 
 # [SUPER] `/charge`
-ChargeMatcher = on_command('charge')
+ChargeMatcher = on_command('给我印钞')
 
 
 @ChargeMatcher.handle()
@@ -317,7 +317,7 @@ async def charge(
     )
 
 # [PUBLIC] `/transfer`
-TransferMatcher = on_command('transfer')
+TransferMatcher = on_command('vita')
 
 
 @TransferMatcher.handle()
@@ -344,7 +344,7 @@ async def transfer(
     )
 
 # [SYNC] `/fork`
-ForkMatcher = on_command('fork')
+ForkMatcher = on_command('我要这个')
 
 
 @ForkMatcher.handle()
@@ -376,7 +376,7 @@ async def fork(
     )
 
 # [PUBLIC] `/renew`
-RenewMatcher = on_command('renew')
+RenewMatcher = on_command('我还要嘛')
 
 
 @RenewMatcher.handle()

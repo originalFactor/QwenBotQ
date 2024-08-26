@@ -54,3 +54,7 @@ class Config(BaseModel):
     grant_cost: int = 1  # 授权价格
     bind_cost: int = 1  # 绑定对象价格
     charge_min_perm: int = 1  # 无中生有最低权限等级
+
+    # 拓展功能
+    note_send_address: str = ''  # 笔记终端IPv4地址
+    note_send_port: int = 100  # 端口

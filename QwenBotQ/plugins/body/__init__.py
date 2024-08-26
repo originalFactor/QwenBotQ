@@ -26,7 +26,7 @@ from nonebot.plugin import PluginMetadata
 from .config import Config
 
 __plugin_meta__ = PluginMetadata(
-    name="AIO",
+    name="QwenBotQ",
     description="All things interesting to improve chatroom expierence.",
     usage="@bot /help",
     type="application",

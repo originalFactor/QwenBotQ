@@ -16,7 +16,7 @@
 # along with QwenBotQ.  If not, see <https:#www.gnu.org/licenses/>.
 
 [project]
-name = "aioBot"
+name = "QwenBotQ"
 version = "0.1.0"
 description = "All in one QQ bot based on Nonebot and LLOneBot."
 readme = "README.md"
@@ -26,5 +26,5 @@ requires-python = ">=3.8, <4.0"
 adapters = [
     {name = "OneBot V11", module_name = "nonebot.adapters.onebot.v11"}
 ]
-plugin_dirs = ["aioBot/plugins"]
+plugin_dirs = ["QwenBotQ/plugins"]
 plugins = ["nonebot_plugin_wordcloud", "nonebot_plugin_arkgacha", "nonebot_plugin_memes"]

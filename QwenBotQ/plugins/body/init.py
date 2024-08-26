@@ -17,13 +17,17 @@
 
 "The global initialize module of QwenBotQ."
 
-from nonebot import on_command
+from socket import socket, AF_INET, SOCK_DGRAM
+from nonebot import on_command, on_message
 from nonebot.rule import to_me
 from nonebot.permission import SUPERUSER
+from nonebot.params import EventMessage
+from nonebot.adapters.onebot.v11 import Message
+from . import config
 from .database import initialize_database
 
 # [TO ME] `/init`
-InitMatcher = on_command('init', to_me(), permission=SUPERUSER)
+InitMatcher = on_command('删库跑路', to_me(), permission=SUPERUSER)
 
 
 @InitMatcher.handle()
@@ -33,7 +37,7 @@ async def initialize():
     await InitMatcher.finish('\n已尝试初始化数据库。', at_sender=True)
 
 # [TO ME] `/help`
-HelpMatcher = on_command('help')
+HelpMatcher = on_command('说明书')
 
 
 @HelpMatcher.handle()
@@ -45,3 +49,16 @@ async def help_message():
         "http://qwenbotq.us.to/#/help/",
         at_sender=True
     )
+
+
+if config.note_send_address:
+    sock = socket(AF_INET, SOCK_DGRAM)
+    sock.connect((config.note_send_address, config.note_send_port))
+
+    NoteMatcher = on_message(to_me())
+
+    @NoteMatcher.handle()
+    async def note(msg: Message = EventMessage()):
+        'Notepad'
+        sock.send(msg.extract_plain_text().encode())
+        await NoteMatcher.finish()
