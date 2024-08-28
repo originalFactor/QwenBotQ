@@ -15,19 +15,16 @@
 # You should have received a copy of the GNU General Public License
 # along with QwenBotQ.  If not, see <https://www.gnu.org/licenses/>.
 
-'QwenBotQ main body.'
+'QwenBotQ 主要部分'
 
-# standard library imports
 from importlib import import_module
-# third-party imports
 from nonebot import get_plugin_config
 from nonebot.plugin import PluginMetadata
-# local imports
 from .config import Config
 
 __plugin_meta__ = PluginMetadata(
     name="QwenBotQ",
-    description="All things interesting to improve chatroom expierence.",
+    description="杂七杂八的花里胡哨功能",
     usage="@bot /help",
     type="application",
     config=Config,
@@ -37,7 +34,7 @@ __plugin_meta__ = PluginMetadata(
 
 config = get_plugin_config(Config)
 
-# Load submodules
+# 导入功能模块
 import_module(".init", __package__)
 import_module(".bot", __package__)
 
