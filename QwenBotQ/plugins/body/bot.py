@@ -134,15 +134,15 @@ async def get_information(
         f'昵称：{user.nick}\n'
         f'积分：{user.coins}\n\t' +
         (
-            f"已签到\n\t失效时间：{(await user.sign_expire).strftime('%Y/%m/%d %H:%M:%S')}"
+            f"已签到\n\t失效时间：{(await user.sign_expire).strftime('%Y/%m/%d %H:%M:%S')}\n"
             if await still_valid(user.last_signed_date) else
-            "未签到"
+            "未签到\n"
         ) +
         f'权限等级：{user.permission}\n'
         f'系统提示词：{user.system_prompt}\n'
         '头像：' +
         MessageSegment.image(await user.avatar) +
-        '本日老婆：' +
+        '本日老公：' +
         (
             f'{cp_user.nick} ({cp_user.id})\n'
             f'\t失效时间：{(await couple.expire).strftime("%Y/%m/%d %H:%M:%S")}'
@@ -337,11 +337,11 @@ async def transfer(
         await TransferMatcher.finish(
             '\n成功给\n'
             f'{mentions[0].nick} ({mentions[0].id})\n'
-            f'转账了{arg}积分！',
+            f'转账了{argument[0]}积分！',
             at_sender=True
         )
     await TransferMatcher.finish(
-        f'\n您的积分余额不足以转账{arg}积分！',
+        f'\n您的积分余额不足以转账{argument[0]}积分！',
         at_sender=True
     )
 
