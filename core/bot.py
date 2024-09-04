@@ -22,11 +22,26 @@ from http import HTTPStatus
 from random import randint, choice
 from typing import Annotated, Tuple
 from socket import socket, AF_INET, SOCK_DGRAM
-from nonebot import on_command, on_message
-from nonebot.rule import to_me
-from nonebot.params import EventPlainText
-from nonebot.adapters.onebot.v11 import MessageSegment, Bot, GroupMessageEvent
 import dashscope
+from nonebot import on_command, on_message
+from nonebot.params import EventPlainText
+from nonebot.adapters.onebot.v11 import (
+    MessageSegment,
+    Bot,
+    GroupMessageEvent
+)
+from nonebot.adapters.onebot.v11.event import Reply
+from . import config
+from .bot_utils import (
+    arg_plain_text,
+    require,
+    arg,
+    mentioned,
+    u2uwn,
+    reply,
+    strict_to_me
+)
+from .utils import still_valid
 from .database import (
     Couple,
     use_couple,
@@ -37,23 +52,13 @@ from .database import (
     update_user,
     get_user
 )
-from .utils import still_valid
-from .bot_utils import (
-    arg_plain_text,
-    require,
-    arg,
-    mentioned,
-    u2uwn,
-    GetMsgResult,
-    reply
-)
-from . import config
+
 
 # 设置dashscope sdk
 dashscope.api_key = config.dashscope_api_key
 
 
-LLMMatcher = on_message(to_me(), priority=20)
+LLMMatcher = on_message(strict_to_me, priority=20)
 
 # 预连接UDP
 if config.note_send_address:
@@ -98,7 +103,7 @@ async def llm(
     )
 
 
-PromptMatcher = on_command('设置系统提示词')
+PromptMatcher = on_command('设置系统提示词', block=True)
 
 
 @PromptMatcher.handle()
@@ -114,7 +119,7 @@ async def set_prompt(
         at_sender=True
     )
 
-GetInformationMatcher = on_command('用户信息')
+GetInformationMatcher = on_command('用户信息', block=True)
 
 
 @GetInformationMatcher.handle()
@@ -152,7 +157,7 @@ async def get_information(
         at_sender=True
     )
 
-GrantMatcher = on_command('授予权限')
+GrantMatcher = on_command('授予权限', block=True)
 
 
 @GrantMatcher.handle()
@@ -169,7 +174,7 @@ async def grant_permission(
         at_sender=True
     )
 
-BindMatcher = on_command('捆在一起')
+BindMatcher = on_command('捆在一起', block=True)
 
 
 @BindMatcher.handle()
@@ -191,7 +196,7 @@ async def bind(
     )
 
 
-WifeMatcher = on_command('今日老公')
+WifeMatcher = on_command('今日老公', block=True)
 
 
 @WifeMatcher.handle()
@@ -217,7 +222,7 @@ async def wife(
         at_sender=True
     )
 
-MembersMatcher = on_command('群友列表')
+MembersMatcher = on_command('群友列表', block=True)
 
 
 @MembersMatcher.handle()
@@ -240,7 +245,7 @@ async def group_members(event: GroupMessageEvent, bot: Bot):
         at_sender=True
     )
 
-SignMatcher = on_command('签到')
+SignMatcher = on_command('签到', block=True)
 
 
 @SignMatcher.handle()
@@ -263,7 +268,7 @@ async def sign(user: Annotated[UserWithNick, require()]):
         at_sender=True
     )
 
-RankMatcher = on_command('封神榜')
+RankMatcher = on_command('封神榜', block=True)
 
 
 @RankMatcher.handle()
@@ -284,7 +289,7 @@ async def rank(bot: Bot):
     )
 
 
-RefreshMatcher = on_command('我不要和他玩')
+RefreshMatcher = on_command('我不要和他玩', block=True)
 
 
 @RefreshMatcher.handle()
@@ -303,7 +308,7 @@ async def refresh(
         at_sender=True
     )
 
-ChargeMatcher = on_command('印钞机')
+ChargeMatcher = on_command('印钞机', block=True)
 
 
 @ChargeMatcher.handle()
@@ -319,7 +324,7 @@ async def charge(
         at_sender=True
     )
 
-TransferMatcher = on_command('转账给')
+TransferMatcher = on_command('转账给', block=True)
 
 
 @TransferMatcher.handle()
@@ -329,6 +334,16 @@ async def transfer(
     argument: Annotated[Tuple[int], arg(int, 1)]
 ):
     '转账积分'
+    if argument[0] < 0:
+        await TransferMatcher.finish(
+            '\n不允许反向转账积分！',
+            at_sender=True
+        )
+    if user.id == mentions[0].id:
+        await TransferMatcher.finish(
+            '\n不允许给自己转账！',
+            at_sender=True
+        )
     if user.coins >= argument[0]:
         mentions[0].coins += argument[0]
         user.coins -= argument[0]
@@ -345,13 +360,13 @@ async def transfer(
         at_sender=True
     )
 
-# [SYNC] `/fork`
-ForkMatcher = on_command('我要这个')
+
+ForkMatcher = on_command('我要这个', block=True)
 
 
 @ForkMatcher.handle()
 async def fork(
-    replied: Annotated[GetMsgResult, reply(True)],
+    replied: Annotated[Reply, reply(True)],
     bot: Bot,
     _: Annotated[UserWithNick, require(0, config.fork_cost)]
 ):
@@ -375,7 +390,7 @@ async def fork(
         at_sender=True
     )
 
-RenewMatcher = on_command('还要这个')
+RenewMatcher = on_command('还要这个', block=True)
 
 
 @RenewMatcher.handle()

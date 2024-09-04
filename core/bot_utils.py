@@ -20,14 +20,19 @@
 '''
 
 from typing import Tuple, Union, Annotated
-from enum import Enum
 from datetime import datetime
 from nonebot.adapters.onebot.v11 import Bot, MessageEvent, Message
-from nonebot.adapters.onebot.v11.event import Sender
+from nonebot.adapters.onebot.v11.event import Reply
 from nonebot.matcher import Matcher
+from nonebot.rule import Rule
 from nonebot.params import CommandArg, Depends
-from pydantic import BaseModel
 from .database import User, NickCache, use_nick, find_nick, update_user, get_user, UserWithNick
+
+
+@Depends
+async def event_original_message(event: MessageEvent) -> Message:
+    '获取事件的原始消息（未去除@bot和回复）'
+    return event.original_message
 
 
 async def nick(user: User, bot: Bot) -> str:
@@ -45,9 +50,9 @@ async def nick(user: User, bot: Bot) -> str:
     return _.nick
 
 
-async def u2uwn(user: User, bot: Bot) -> UserWithNick:
+async def u2uwn(user: User, bot: Bot, n: Union[str, None] = None) -> UserWithNick:
     "将User模型转换为UserWithNick模型"
-    return UserWithNick(**user.model_dump(), nick=await nick(user, bot))
+    return UserWithNick(**user.model_dump(), nick=(n if n else await nick(user, bot)))
 
 
 def require(cost_permission: int = 0, cost_coins: int = 0):
@@ -72,7 +77,7 @@ def require(cost_permission: int = 0, cost_coins: int = 0):
                 f"\n您已被扣除所需的{cost_coins}点积分！",
                 at_sender=True
             )
-        return await u2uwn(await get_user(event.user_id), bot)
+        return await u2uwn(user, bot, event.sender.nickname)
     return _require
 
 
@@ -110,7 +115,7 @@ def mentioned(least: int = 0):
     async def _mentioned(
         matcher: Matcher,
         bot: Bot,
-        args: Annotated[Message, CommandArg()]
+        args: Annotated[Message, event_original_message]
     ) -> Tuple[UserWithNick, ...]:
         mentioned_users = tuple([
             await u2uwn(await get_user(_.data['qq']), bot) for _ in args['at']
@@ -124,46 +129,28 @@ def mentioned(least: int = 0):
     return _mentioned
 
 
-class MessageType(str, Enum):
-    "消息类型"
-
-    PRIVATE = "private"
-    GROUP = "group"
-
-
-class GetMsgResult(BaseModel):
-    "get_msg API的返回模型"
-
-    time: int
-    message_type: MessageType
-    message_id: int
-    real_id: int
-    sender: Sender
-    message: Message
-
-
 def reply(required: bool = False):
     "The dependency for replied message"
     @Depends
     async def _reply(
             matcher: Matcher,
-            bot: Bot,
-            event: MessageEvent) -> Union[GetMsgResult, None]:
-        if required and not event.original_message['reply']:
+            event: MessageEvent) -> Union[Reply, None]:
+        if required and not event.reply:
             await matcher.finish(
                 "\n必须回复一条消息才能使用此功能",
                 at_sender=True
             )
-        return (
-            GetMsgResult(
-                **(
-                    await bot.get_msg(
-                        message_id=event.original_message['reply',
-                                                          0].data['id']
-                    )
-                )
-            )
-            if event.original_message['reply']
-            else None
-        )
+        return event.reply
     return _reply
+
+
+@Rule
+def strict_to_me(event: MessageEvent) -> bool:
+    if event.original_message['at']:
+        if (
+            event.original_message['at', 0].data['qq'] == str(event.self_id)
+            or
+            event.message_type == 'private'
+        ):
+            return True
+    return False

@@ -18,12 +18,13 @@
 "The global initialize module of QwenBotQ."
 
 from nonebot import on_command
-from nonebot.rule import to_me
+from .bot_utils import strict_to_me
 from nonebot.permission import SUPERUSER
 from .database import initialize_database
 
 # 初始化机器人，需要配置文件超管权限
-InitMatcher = on_command('删库跑路', to_me(), permission=SUPERUSER)
+InitMatcher = on_command('删库跑路', strict_to_me,
+                         permission=SUPERUSER, block=True)
 
 
 @InitMatcher.handle()
@@ -33,7 +34,7 @@ async def initialize():
     await InitMatcher.finish('\n已尝试初始化数据库。', at_sender=True)
 
 # 指南
-HelpMatcher = on_command('说明书')
+HelpMatcher = on_command('说明书', block=True)
 
 
 @HelpMatcher.handle()

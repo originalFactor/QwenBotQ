@@ -5,10 +5,11 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python 调试程序: 使用进程 ID 附加",
+            "name": "启动机器人",
             "type": "debugpy",
-            "request": "attach",
-            "processId": "${command:pickProcess}"
+            "request": "launch",
+            "program": "${workspaceFolder}/bot.py",
+            "console": "integratedTerminal"
         }
     ]
 }

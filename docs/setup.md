@@ -19,3 +19,23 @@
 
 # 安装
 
+** 本文仅包含运行本项目的信息，请自行设置OneBot v11后端 **
+
+```sh
+# 先拉取项目
+git clone https://github.com/originalFactor/QwenBotQ.git
+# 进入项目目录
+cd QwenBotQ
+# 按提示编辑配置文件
+vim .env.prod.example
+# 更改文件名
+mv .env.prod.example .env.prod
+# 安装Nonebot2以及插件
+python3 -m pip install nonebot2 nonebot-adapter-onebot nonebot-plugin-arkgacha nonebot-plugin-wordcloud nonebot-plugin-memes
+# 设置代理
+export https_proxy=http://127.0.0.1:7897 http_proxy=http://127.0.0.1:7897 all_proxy=socks5://127.0.0.1:7897
+# 初始化方舟
+arkkit init -SIMG
+# 运行机器人
+python3 ./bot.py
+```
