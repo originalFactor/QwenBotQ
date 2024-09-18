@@ -19,7 +19,7 @@
 供主体使用的Bot实用函数
 '''
 
-from typing import Tuple, Union, Annotated
+from typing import Optional, Tuple, Union, Annotated
 from datetime import datetime
 from nonebot.adapters.onebot.v11 import Bot, MessageEvent, Message
 from nonebot.adapters.onebot.v11.event import Reply
@@ -53,6 +53,10 @@ async def nick(user: User, bot: Bot) -> str:
 async def u2uwn(user: User, bot: Bot, n: Union[str, None] = None) -> UserWithNick:
     "将User模型转换为UserWithNick模型"
     return UserWithNick(**user.model_dump(), nick=(n if n else await nick(user, bot)))
+
+
+async def get_userwithnick(_id: Union[str, int], bot: Bot, n: Optional[str] = None) -> UserWithNick:
+    return await u2uwn(await get_user(_id), bot, n)
 
 
 def require(cost_permission: int = 0, cost_coins: int = 0):
@@ -115,11 +119,14 @@ def mentioned(least: int = 0):
     async def _mentioned(
         matcher: Matcher,
         bot: Bot,
-        args: Annotated[Message, event_original_message]
+        message: Annotated[Message, event_original_message],
+        args: Annotated[Tuple[int], arg(int)]
     ) -> Tuple[UserWithNick, ...]:
-        mentioned_users = tuple([
-            await u2uwn(await get_user(_.data['qq']), bot) for _ in args['at']
-        ])
+
+        mentioned_users = tuple(
+            [await get_userwithnick(_.data['qq'], bot) for _ in message['at']] +
+            [await get_userwithnick(_, bot) for _ in args]
+        )
         if len(mentioned_users) >= least:
             return mentioned_users
         await matcher.finish(
@@ -146,11 +153,15 @@ def reply(required: bool = False):
 
 @Rule
 def strict_to_me(event: MessageEvent) -> bool:
-    if event.original_message['at']:
-        if (
+    "严格限制提及机器人（仅私聊或消息头@bot）"
+    if (
+        (
+            event.original_message['at']
+            and
             event.original_message['at', 0].data['qq'] == str(event.self_id)
-            or
-            event.message_type == 'private'
-        ):
-            return True
+        )
+        or
+        event.message_type == 'private'
+    ):
+        return True
     return False

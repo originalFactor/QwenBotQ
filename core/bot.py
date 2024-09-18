@@ -34,6 +34,7 @@ from nonebot.adapters.onebot.v11.event import Reply
 from . import config
 from .bot_utils import (
     arg_plain_text,
+    get_userwithnick,
     require,
     arg,
     mentioned,
@@ -44,6 +45,9 @@ from .bot_utils import (
 from .utils import still_valid
 from .database import (
     Couple,
+    Request,
+    approve_request,
+    send_request,
     use_couple,
     find_couple,
     remove_couple,
@@ -131,9 +135,10 @@ async def get_information(
     '用户信息'
     user = mention[0] if mention else user
     if couple := await user.couple:
-        cp_user = await u2uwn(await get_user(
-            (await couple.opposite(user.id))
-        ), bot)
+        cp_user = await get_userwithnick(
+            (await couple.opposite(user.id)),
+            bot
+        )
     await GetInformationMatcher.finish(
         f'\n{user.id}的用户信息：\n'
         f'昵称：{user.nick}\n'
@@ -408,5 +413,51 @@ async def renew(
         f'{f"{couple.nick} ({couple.id})" if couple else "未绑定或已过期"}\n'
         '的关系至\n'
         f'{(await cp.expire).strftime("%Y/%m/%d %H:%M:%S") if cp else "无数据"}',
+        at_sender=True
+    )
+
+MarryMatcher = on_command('永久绑定')
+
+
+@MarryMatcher.handle()
+async def marry(
+    user: Annotated[UserWithNick, require(0, config.marry_cost)],
+    mention: Annotated[Tuple[UserWithNick, ...], mentioned(1)]
+):
+    '和群友绑定永久关系'
+    if await user.couple:
+        await MarryMatcher.finish(
+            '\n请专一一点哦',
+            at_sender=True
+        )
+    if await mention[0].couple:
+        await MarryMatcher.finish(
+            '\n不准NTR(>_<)！',
+            at_sender=True
+        )
+    await send_request(
+        Request.model_validate({
+            'from_user': user.id,
+            'to_user': mention[0].id
+        })
+    )
+    await MarryMatcher.finish(
+        '\n请求已发送！快叫TA发送“同意请求”吧！',
+        at_sender=True
+    )
+
+ApproveMatcher = on_command('同意请求')
+
+
+@ApproveMatcher.handle()
+async def approve(user: Annotated[UserWithNick, require()], bot: Bot):
+    '同意永久绑定请求'
+    await approve_request(user.id)
+    cp = await get_userwithnick(
+        await (await user.couple).opposite(user.id),  # type: ignore
+        bot
+    )
+    await ApproveMatcher.finish(
+        f'\n已同意请求！您已与 {cp.nick} ({cp.id}) 达成永久关系！',
         at_sender=True
     )

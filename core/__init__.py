@@ -31,6 +31,7 @@ __plugin_meta__ = PluginMetadata(
     homepage="https://github.com/originalFactor/QwenBotQ/",
     supported_adapters={"nonebot-adapter-onebot"}
 )
+version = '0.1.0'
 
 config = get_plugin_config(Config)
 

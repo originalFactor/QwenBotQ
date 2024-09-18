@@ -37,7 +37,6 @@ class Config(BaseModel):
 
     # 大模型
     dashscope_api_key: str  # 通义千问API Key
-    system_prompt: str = 'You are a smart assistant.'  # 默认系统提示词
     llm_cost: int = 1  # 通义千问价格
     set_prompt_cost: int = 1  # 设置提示词价格
     model: str = "qwen-plus"
@@ -49,6 +48,8 @@ class Config(BaseModel):
     fork_cost: int = 1  # 导入萝卜数据的价格
     renew_cost: int = 1  # 续费老婆价格
     trusted_wife_source: List[int] = [3003535850, 1297825911]  # 可信的数据导入源
+    marry_cost: int = 5  # 结婚价格
+    divorce_cost: int = 5  # 离婚价格
 
     # 超管
     grant_cost: int = 1  # 授权价格

@@ -17,21 +17,8 @@
 
 "The global initialize module of QwenBotQ."
 
-from nonebot import on_command
-from .bot_utils import strict_to_me
-from nonebot.permission import SUPERUSER
-from .database import initialize_database
-
-# 初始化机器人，需要配置文件超管权限
-InitMatcher = on_command('删库跑路', strict_to_me,
-                         permission=SUPERUSER, block=True)
-
-
-@InitMatcher.handle()
-async def initialize():
-    '`删库跑路`命令handler'
-    await initialize_database()
-    await InitMatcher.finish('\n已尝试初始化数据库。', at_sender=True)
+from nonebot import on_command, on_request
+from nonebot.adapters.onebot.v11 import FriendRequestEvent, Bot
 
 # 指南
 HelpMatcher = on_command('说明书', block=True)
@@ -47,3 +34,13 @@ async def help_message():
         "如命令发送后无反应可能是您的积分不足或权限过低。",
         at_sender=True
     )
+
+
+RequestMatcher = on_request()
+
+
+@RequestMatcher.handle()
+async def process_friend_request(event: FriendRequestEvent, bot: Bot):
+    '自动同意好友请求'
+    await event.approve(bot)
+    await RequestMatcher.finish()
