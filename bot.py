@@ -20,10 +20,7 @@ nonebot.init()
 driver = nonebot.get_driver()
 driver.register_adapter(OnebotV11Adapter)
 
-nonebot.load_plugin("nonebot_plugin_wordcloud")
-nonebot.load_plugin("nonebot_plugin_arkgacha")
-nonebot.load_plugin("nonebot_plugin_memes")
-nonebot.load_plugin("core")
+nonebot.load_plugin("qwenbotq")
 
 if __name__ == "__main__":
     nonebot.run()

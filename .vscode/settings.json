@@ -1,8 +1,0 @@
-{
-    "python.languageServer": "Pylance",
-    "python.analysis.typeCheckingMode": "basic",
-    "licenser.author": "originalFactor",
-    "licenser.license": "GPLv3",
-    "licenser.projectName": "QwenBotQ",
-    "Codegeex.CompletionDelay": 1
-  }

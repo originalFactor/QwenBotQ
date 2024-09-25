@@ -19,14 +19,13 @@
 供主体使用的Bot实用函数
 '''
 
-from typing import Tuple, Union, Annotated
-from datetime import datetime
+from typing import Tuple, Union, Annotated, List, Optional, Sequence
 from nonebot.adapters.onebot.v11 import Bot, MessageEvent, Message
 from nonebot.adapters.onebot.v11.event import Reply
 from nonebot.matcher import Matcher
 from nonebot.rule import Rule
 from nonebot.params import CommandArg, Depends
-from .database import User, NickCache, use_nick, find_nick, update_user, get_user, UserWithNick
+from .database import User
 
 
 @Depends
@@ -34,32 +33,11 @@ async def event_original_message(event: MessageEvent) -> Message:
     '获取事件的原始消息（未去除@bot和回复）'
     return event.original_message
 
-
-async def nick(user: User, bot: Bot) -> str:
-    "获取用户昵称"
-
-    if not (_ := await find_nick(user.id)):
-        _ = NickCache(
-            id=user.id,
-            nick=(await bot.get_stranger_info(
-                user_id=int(user.id)
-            ))['nickname'],
-            created=datetime.now()
-        )
-        await use_nick(_)
-    return _.nick
-
-
-async def u2uwn(user: User, bot: Bot, n: Union[str, None] = None) -> UserWithNick:
-    "将User模型转换为UserWithNick模型"
-    return UserWithNick(**user.model_dump(), nick=(n if n else await nick(user, bot)))
-
-
 def require(cost_permission: int = 0, cost_coins: int = 0):
     "用于获取发送用户的权限函数，可指定最小权限等级以及消耗积分数量"
     @Depends
-    async def _require(event: MessageEvent, matcher: Matcher, bot: Bot) -> UserWithNick:
-        user = await get_user(event.user_id)
+    async def _require(event: MessageEvent, matcher: Matcher, bot: Bot) -> User:
+        user = await User.get(event.user_id, bot)
         if user.permission < cost_permission:
             await matcher.finish(
                 f"\n您的权限不足，至少需要{cost_permission}。",
@@ -72,19 +50,21 @@ def require(cost_permission: int = 0, cost_coins: int = 0):
                     at_sender=True
                 )
             user.coins -= cost_coins
-            await update_user(user)
+            await user.update()
             await matcher.send(
                 f"\n您已被扣除所需的{cost_coins}点积分！",
                 at_sender=True
             )
-        return await u2uwn(user, bot, event.sender.nickname)
+        if event.sender.nickname:
+            user.nick = event.sender.nickname
+        return user
     return _require
 
 
 @Depends
 async def arg_plain_text(args: Annotated[Message, CommandArg()]) -> str:
     '获取命令纯文本参数'
-    return args.extract_plain_text()
+    return args.extract_plain_text().strip()
 
 
 def arg(tp: type, least: int = 0):
@@ -93,9 +73,9 @@ def arg(tp: type, least: int = 0):
     async def _arg(
             matcher: Matcher,
             args: Annotated[str, arg_plain_text]
-    ) -> Tuple[tp]:
+    ) -> List[tp]:
         try:
-            if len(x := tuple(map(tp, args.strip().split()))) >= least:
+            if len(x := list(map(tp, args.strip().split()))) >= least:
                 return x
             await matcher.finish(
                 f'请输入至少{least}个{tp}类型参数！',
@@ -115,11 +95,13 @@ def mentioned(least: int = 0):
     async def _mentioned(
         matcher: Matcher,
         bot: Bot,
-        args: Annotated[Message, event_original_message]
-    ) -> Tuple[UserWithNick, ...]:
-        mentioned_users = tuple([
-            await u2uwn(await get_user(_.data['qq']), bot) for _ in args['at']
-        ])
+        msg: Annotated[Message, event_original_message],
+        args: Annotated[Sequence[int], arg(int)]
+    ) -> List[User]:
+        mentioned_users = (
+            [await User.get(_.data['qq'], bot) for _ in msg['at']]+
+            [await User.get(_, bot) for _ in args]
+        )
         if len(mentioned_users) >= least:
             return mentioned_users
         await matcher.finish(
@@ -154,3 +136,23 @@ def strict_to_me(event: MessageEvent) -> bool:
         ):
             return True
     return False
+
+async def get_replies(reply: Reply, bot: Bot) -> List[Reply]:
+    if reply.message['reply']:
+        return (
+            await get_replies(
+                Reply.model_validate(
+                    await bot.get_msg(
+                        message_id=reply.message['reply',0].data['id']
+                    )
+                ),
+                bot
+            )
+            +
+            [reply]
+        )
+    return [reply]
+
+@Depends
+async def get_flow_replies(replied: Annotated[Optional[Reply], reply()], bot: Bot) -> Optional[List[Reply]]:
+    return await get_replies(replied, bot)

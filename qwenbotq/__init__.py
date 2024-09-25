@@ -20,6 +20,7 @@
 from importlib import import_module
 from nonebot import get_plugin_config
 from nonebot.plugin import PluginMetadata
+from httpx import AsyncClient
 from .config import Config
 
 __plugin_meta__ = PluginMetadata(
@@ -33,6 +34,8 @@ __plugin_meta__ = PluginMetadata(
 )
 
 config = get_plugin_config(Config)
+
+http_client = AsyncClient()
 
 # 导入功能模块
 import_module(".init", __package__)

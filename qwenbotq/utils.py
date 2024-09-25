@@ -1,5 +1,3 @@
-# Copyright (C) 2024 originalFactor
-#
 # This file is part of QwenBotQ.
 #
 # QwenBotQ is free software: you can redistribute it and/or modify
@@ -15,11 +13,12 @@
 # You should have received a copy of the GNU General Public License
 # along with QwenBotQ.  If not, see <https://www.gnu.org/licenses/>.
 
-'The utils module of QwenBotQ'
+"Utils module of QwenBotQ"
 
-from datetime import datetime, timedelta
+from typing import Sequence, Mapping
 
-
-async def still_valid(date: datetime) -> bool:
-    'Check if the date is still valid'
-    return date >= datetime.now()-timedelta(1)
+def sum_tokens(messages: Sequence[Mapping[str, str]])->int:
+    sum = 0
+    for msg in messages:
+        sum += len(msg['content'])
+    return sum
