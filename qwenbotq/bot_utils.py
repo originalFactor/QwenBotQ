@@ -19,12 +19,14 @@
 供主体使用的Bot实用函数
 '''
 
-from typing import Tuple, Union, Annotated, List, Optional, Sequence
+from typing import Union, Annotated, List, Optional, Sequence
+
 from nonebot.adapters.onebot.v11 import Bot, MessageEvent, Message
 from nonebot.adapters.onebot.v11.event import Reply
 from nonebot.matcher import Matcher
-from nonebot.rule import Rule
 from nonebot.params import CommandArg, Depends
+from nonebot.rule import Rule
+
 from .database import User
 
 
@@ -33,7 +35,7 @@ async def event_original_message(event: MessageEvent) -> Message:
     '获取事件的原始消息（未去除@bot和回复）'
     return event.original_message
 
-def require(cost_permission: int = 0, cost_coins: int = 0):
+def require(cost_permission: int = 0, cost_coins: int = 0, only_check: bool = False):
     "用于获取发送用户的权限函数，可指定最小权限等级以及消耗积分数量"
     @Depends
     async def _require(event: MessageEvent, matcher: Matcher, bot: Bot) -> User:
@@ -49,12 +51,13 @@ def require(cost_permission: int = 0, cost_coins: int = 0):
                     f"\n您的积分不足，至少需要{cost_coins}。",
                     at_sender=True
                 )
-            user.coins -= cost_coins
-            await user.update()
-            await matcher.send(
-                f"\n您已被扣除所需的{cost_coins}点积分！",
-                at_sender=True
-            )
+            if not only_check:
+                user.coins -= cost_coins
+                await user.update()
+                await matcher.send(
+                    f"\n您已被扣除所需的{cost_coins}点积分！",
+                    at_sender=True
+                )
         if event.sender.nickname:
             user.nick = event.sender.nickname
         return user
@@ -96,11 +99,11 @@ def mentioned(least: int = 0):
         matcher: Matcher,
         bot: Bot,
         msg: Annotated[Message, event_original_message],
-        args: Annotated[Sequence[int], arg(int)]
+        args: Annotated[Sequence[str], arg(str)]
     ) -> List[User]:
         mentioned_users = (
             [await User.get(_.data['qq'], bot) for _ in msg['at']]+
-            [await User.get(_, bot) for _ in args]
+            [await User.get(_[1:], bot) for _ in args if _.startswith('@')]
         )
         if len(mentioned_users) >= least:
             return mentioned_users
@@ -155,4 +158,4 @@ async def get_replies(reply: Reply, bot: Bot) -> List[Reply]:
 
 @Depends
 async def get_flow_replies(replied: Annotated[Optional[Reply], reply()], bot: Bot) -> Optional[List[Reply]]:
-    return await get_replies(replied, bot)
+    return await get_replies(replied, bot) if replied else None

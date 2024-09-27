@@ -94,7 +94,7 @@ class User(BaseModel):
     @property
     async def couple(self)->Optional['CoupleInfo']:
         'Get the couple user'
-        return await CoupleInfo.get(self.id)
+        return _ if (_:=await CoupleInfo.get(self.id)) and _.expire > datetime.now() else None
 
     class Config:
         by_alias = True

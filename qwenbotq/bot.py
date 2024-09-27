@@ -54,7 +54,7 @@ LLMMatcher = on_message(strict_to_me, priority=20)
 
 @LLMMatcher.handle()
 async def llm(
-        user: Annotated[User, require()],
+        user: Annotated[User, require(0,1,True)],
         prompt: Annotated[str, EventPlainText()],
         replies: Annotated[Optional[Sequence[Reply]], get_flow_replies],
         bot: Bot
@@ -66,7 +66,7 @@ async def llm(
         ] + [
            {'role': ('assistant' if _.sender == bot.self_id else 'user'),
             'content': _.message.extract_plain_text()}
-           for _ in replies
+           for _ in (replies if replies else [])
         ] + [
            {'role': 'user', 'content': prompt}
         ]

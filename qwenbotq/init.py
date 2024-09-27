@@ -60,7 +60,7 @@ GitHub: https://github.com/originalFactor/QwenBotQ
 - 更改模型 [模型]
   更改大模型，不提供参数则获取模型列表
 
-注：[参数]代表可选参数， @用户 可用用户QQ号代替。
+注：[参数]代表可选参数， @用户 可用 @用户QQ号 代替。
 '''
 
 # 指南
