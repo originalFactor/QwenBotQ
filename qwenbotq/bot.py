@@ -15,17 +15,19 @@
 # You should have received a copy of the GNU General Public License
 # along with QwenBotQ.  If not, see <https://www.gnu.org/licenses/>.
 
-"Core module of QwenBotQ"
+'''
+核心功能实现
+'''
 
 from datetime import timedelta, datetime
+from math import ceil
 from random import randint, choice
 from typing import Annotated, Optional, Sequence
 from urllib.error import HTTPError
-from math import ceil
 
 from nonebot import on_message, on_command
-from nonebot.adapters.onebot.v11 import Bot, MessageSegment
-from nonebot.adapters.onebot.v11.event import Reply, GroupMessageEvent
+from nonebot.adapters.satori import Bot, MessageSegment, Message
+from nonebot.adapters.satori.event import MessageEvent
 from nonebot.params import EventPlainText
 from openai import AsyncOpenAI
 
@@ -37,11 +39,12 @@ from .bot_utils import (
     mentioned,
     reply,
     strict_to_me,
-    get_flow_replies
+    # get_flow_replies
 )
 from .database import Couple, User, get_top10_users
 from .utils import sum_tokens
 
+'''
 # 初始化异步OpenAI客户端对象
 openai = AsyncOpenAI(
     api_key=config.api_key,
@@ -54,21 +57,28 @@ LLMMatcher = on_message(strict_to_me, priority=20)
 
 @LLMMatcher.handle()
 async def llm(
-        user: Annotated[User, require(0,1,True)],
+        user: Annotated[User, require(0, config.llm_least_coins, True)],
         prompt: Annotated[str, EventPlainText()],
-        replies: Annotated[Optional[Sequence[Reply]], get_flow_replies],
+        replies: Annotated[Optional[Sequence[Message]], replies],
         bot: Bot
 ):
     "大模型回复"
     if prompt:
+        if user.model not in config.models:
+            await LLMMatcher.send(
+                '\n您所选的模型不可用，已为您自动重置。',
+                at_sender=True
+            )
+            user.model = list(config.models.keys())[0]
+            await user.update()
         messages = [
-           {'role': 'system', 'content': user.system_prompt}
+            {'role': 'system', 'content': user.system_prompt}
         ] + [
-           {'role': ('assistant' if _.sender == bot.self_id else 'user'),
-            'content': _.message.extract_plain_text()}
-           for _ in (replies if replies else [])
+            {'role': ('assistant' if _.sender == bot.self_id else 'user'),
+             'content': _.message.extract_plain_text()}
+            for _ in (replies if replies else [])
         ] + [
-           {'role': 'user', 'content': prompt}
+            {'role': 'user', 'content': prompt}
         ]
         if sum_tokens(messages) >= config.models[user.model][2]:
             await LLMMatcher.finish(
@@ -89,7 +99,8 @@ async def llm(
             user.coins -= (usage := ceil(
                 response.usage.prompt_tokens/1000*config.models[user.model][0]
                 +
-                response.usage.completion_tokens/1000*config.models[user.model][1]
+                response.usage.completion_tokens /
+                1000*config.models[user.model][1]
             ))
             await user.update()
             await LLMMatcher.finish(
@@ -119,6 +130,7 @@ async def set_prompt(
         at_sender=True
     )
 
+'''
 GetInformationMatcher = on_command('用户信息', block=True)
 
 
@@ -136,7 +148,7 @@ async def get_information(
         f'积分：{user.coins}\n\t' +
         (
             f"已签到\n\t失效时间：{user.sign_expire.strftime('%Y/%m/%d %H:%M:%S')}\n"
-            if user.sign_expire>datetime.now() else
+            if user.sign_expire > datetime.now() else
             "未签到\n"
         ) +
         f'权限等级：{user.permission}\n'
@@ -153,7 +165,7 @@ async def get_information(
         ),
         at_sender=True
     )
-
+'''
 GrantMatcher = on_command('授予权限', block=True)
 
 
@@ -180,7 +192,8 @@ async def bind(
     _: Annotated[User, require(1, config.bind_cost)]
 ):
     '绑定关系'
-    cp = Couple(A=mention[0].id, B=mention[1].id, expire=datetime.today()+timedelta(1))
+    cp = Couple(A=mention[0].id, B=mention[1].id,
+                expire=datetime.today()+timedelta(1))
     await cp.apply()
     await BindMatcher.finish(
         '\n已尝试绑定\n'
@@ -209,7 +222,8 @@ async def wife(
         x = choice(await bot.get_group_member_list(group_id=event.group_id))
         cp_user = await User.get(x['user_id'], bot)
         cp_user.nick = x['nickname']
-        couple = Couple(A=user.id, B=cp_user.id, expire=datetime.today()+timedelta(1))
+        couple = Couple(A=user.id, B=cp_user.id,
+                        expire=datetime.today()+timedelta(1))
         await couple.apply()
     await WifeMatcher.finish(
         '\n你今天的老公是：' +
@@ -279,7 +293,8 @@ async def rank():
         (
             '\n'.join(
                 [
-                    f'[{x+1}] {users[x].nick} ({users[x].id}) : {users[x].coins}'
+                    f'[{x +
+                        1}] {users[x].nick} ({users[x].id}) : {users[x].coins}'
                     for x in range(len(users))
                 ]
             )
@@ -302,7 +317,8 @@ async def refresh(
 
     await RefreshMatcher.finish(
         '\n已解除和\n'
-        f'{f"{cpinfo.user.nick} ({cpinfo.user.id})" if cpinfo else "未绑定或已过期"}\n'
+        f'{f"{
+            cpinfo.user.nick} ({cpinfo.user.id})" if cpinfo else "未绑定或已过期"}\n'
         '的绑定！',
         at_sender=True
     )
@@ -365,9 +381,9 @@ ForkMatcher = on_command('恢复记录', block=True)
 
 @ForkMatcher.handle()
 async def fork(
-    bot: Bot,
-    _: Annotated[User, require(0, config.fork_cost)],
-    replied: Annotated[Reply, reply(True)]):
+        bot: Bot,
+        _: Annotated[User, require(0, config.fork_cost)],
+        replied: Annotated[Reply, reply(True)]):
     '应用老搭'
     if replied.sender.user_id not in config.trusted_wife_source:
         await ForkMatcher.finish(
@@ -403,7 +419,8 @@ async def renew(
     couple = await user.couple
     await RenewMatcher.finish(
         '\n已成功续期您和\n'
-        f'{f"{couple.user.nick} ({couple.user.id})" if couple else "未绑定或已过期"}\n'
+        f'{f"{
+            couple.user.nick} ({couple.user.id})" if couple else "未绑定或已过期"}\n'
         '的关系至\n'
         f'{couple.expire.strftime("%Y/%m/%d %H:%M:%S") if couple else "无数据"}',
         at_sender=True
@@ -411,6 +428,8 @@ async def renew(
 
 
 ModelChangeMatcher = on_command('更改模型', block=True)
+
+
 @ModelChangeMatcher.handle()
 async def model_change(
     user: Annotated[User, require()],
@@ -418,11 +437,11 @@ async def model_change(
 ):
     if not args or args not in config.models:
         await ModelChangeMatcher.finish(
-            '\n请指定一个正确的目标模型。\n支持的模型：\n\t模型\t输入消耗\t输出消耗\t最大上下文\n\t'+
+            '\n请指定一个正确的目标模型。\n支持的模型：\n\t模型\t输入消耗\t输出消耗\t最大上下文\n\t' +
             ('\n\t'.join([
                 f'{_[0]}\t{_[1][0]}\t{_[1][1]}\t{_[1][2]}'
                 for _ in config.models.items()
-            ]))+
+            ])) +
             '\n注：消耗计算方式：接口给出的消耗Token数/1000*倍率，消耗积分。',
             at_sender=True
         )
@@ -432,3 +451,40 @@ async def model_change(
         '\n成功为您更换模型。',
         at_sender=True
     )
+
+
+BytesNameMatcher = on_command('昵称照妖镜', block=True)
+
+
+@BytesNameMatcher.handle()
+async def bytes_name(
+        mention: Annotated[Sequence[User], mentioned(1)]
+):
+    '获取昵称的bytes表示'
+    await BytesNameMatcher.finish(
+        '\n'+str(mention[0].nick.encode('unicode-escape'), 'utf-8'),
+        at_sender=True
+    )
+
+BytesDecoderMatcher = on_command('Unicode解码', block=True)
+
+
+@BytesDecoderMatcher.handle()
+async def bytes_decoder(args: Annotated[str, arg_plain_text]):
+    '解码unicode-escape编码的字符串'
+    await BytesDecoderMatcher.finish(
+        '\n'+bytes(args, 'utf-8').decode('unicode-escape'),
+        at_sender=True
+    )
+
+BytesEncoderMatcher = on_command('Unicode编码', block=True)
+
+
+@BytesEncoderMatcher.handle()
+async def bytes_encoder(args: Annotated[str, arg_plain_text]):
+    '编码unicode-escape编码的字符串'
+    await BytesEncoderMatcher.finish(
+        '\n'+str(args.encode('unicode-escape'), 'utf-8'),
+        at_sender=True
+    )
+'''

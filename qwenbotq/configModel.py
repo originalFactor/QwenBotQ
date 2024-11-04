@@ -39,11 +39,12 @@ class Config(BaseModel):
     base_url: str = 'https://dashscope.aliyuncs.com/compatible-mode/v1'  # OpenAI格式接口地址
     api_key: str  # OpenAI format API Key
     system_prompt: str = 'You are a smart assistant.'  # 默认系统提示词
-    models: Mapping[str, Sequence[Union[float, int]]] = {  # 模型价格（计算方式:Tokens/1000*cost）
-        'qwen-max-latest': (0.2, 0.6, 32000),  # (输入, 输出, 最大上下文)
+    models: Mapping[str, Sequence[Union[float, int]]] = {  # 模型列表（计算方式:Tokens/1000*cost）
+        'qwen-max-latest': (0.2, 0.6, 32000),  # (输入价格, 输出价格, 最大上下文)
         'qwen-turbo-latest': (0.003, 0.006, 128000),
         'qwen-plus-latest': (0.008, 0.02, 128000)
     }
+    llm_least_coins:int = 0  # 最低使用积分
     set_prompt_cost: int = 1  # 设置提示词价格
 
     # 个人中心

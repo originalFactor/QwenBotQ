@@ -19,47 +19,50 @@
 供主体使用的Bot实用函数
 '''
 
-from typing import Union, Annotated, List, Optional, Sequence
+from typing import Union, Annotated, List, Optional, Sequence, Any
 
-from nonebot.adapters.onebot.v11 import Bot, MessageEvent, Message
-from nonebot.adapters.onebot.v11.event import Reply
-from nonebot.matcher import Matcher
+from nonebot.adapters.satori import Bot, MessageEvent, Message, MessageSegment
+from nonebot.adapters.satori.message import RenderMessage
+from nonebot.adapters.satori.models import MessageObject as SatoriMessage
+from nonebot.matcher import Matcher as NBMatcher, current_event
 from nonebot.params import CommandArg, Depends
 from nonebot.rule import Rule
 
 from .database import User
 
 
-@Depends
-async def event_original_message(event: MessageEvent) -> Message:
-    '获取事件的原始消息（未去除@bot和回复）'
-    return event.original_message
+class Matcher(NBMatcher):
+    @classmethod
+    async def send(cls, message, **kwargs):
+        await super().send(
+            MessageSegment.at(current_event.get().user.id)+message,
+            kwargs=kwargs
+        )
+
 
 def require(cost_permission: int = 0, cost_coins: int = 0, only_check: bool = False):
     "用于获取发送用户的权限函数，可指定最小权限等级以及消耗积分数量"
     @Depends
     async def _require(event: MessageEvent, matcher: Matcher, bot: Bot) -> User:
-        user = await User.get(event.user_id, bot)
-        if user.permission < cost_permission:
+        user = User(fw=event.user)
+        await user.complete(bot)
+        if user.db.permission < cost_permission:
             await matcher.finish(
                 f"\n您的权限不足，至少需要{cost_permission}。",
-                at_sender=True
             )
         if cost_coins:
-            if user.coins < cost_coins:
+            if user.db.coins < cost_coins:
                 await matcher.finish(
                     f"\n您的积分不足，至少需要{cost_coins}。",
                     at_sender=True
                 )
             if not only_check:
-                user.coins -= cost_coins
-                await user.update()
+                user.db.coins -= cost_coins
+                await user.db.update()
                 await matcher.send(
                     f"\n您已被扣除所需的{cost_coins}点积分！",
                     at_sender=True
                 )
-        if event.sender.nickname:
-            user.nick = event.sender.nickname
         return user
     return _require
 
@@ -74,9 +77,9 @@ def arg(tp: type, least: int = 0):
     "获取至少least个tp类型的命令参数"
     @Depends
     async def _arg(
-            matcher: Matcher,
-            args: Annotated[str, arg_plain_text]
-    ) -> List[tp]:
+        matcher: Matcher,
+        args: Annotated[str, arg_plain_text]
+    ) -> List[Any]:
         try:
             if len(x := list(map(tp, args.strip().split()))) >= least:
                 return x
@@ -96,15 +99,17 @@ def mentioned(least: int = 0):
     "获取至少least个被提及的用户"
     @Depends
     async def _mentioned(
-        matcher: Matcher,
-        bot: Bot,
-        msg: Annotated[Message, event_original_message],
-        args: Annotated[Sequence[str], arg(str)]
+            matcher: Matcher,
+            bot: Bot,
+            msg: MessageEvent,
+            args: Annotated[Sequence[str], arg(str)]
     ) -> List[User]:
-        mentioned_users = (
-            [await User.get(_.data['qq'], bot) for _ in msg['at']]+
-            [await User.get(_[1:], bot) for _ in args if _.startswith('@')]
-        )
+        mentioned_users = [await User.get(_[1:], bot) for _ in args if _.startswith('@')]
+        for _ in msg.original_message['at']:
+            user = await User.get(_.data['qq'], bot)
+            if _.data.get('name'):
+                user.nick = _.data['name'][1:]
+            mentioned_users.append(user)
         if len(mentioned_users) >= least:
             return mentioned_users
         await matcher.finish(
@@ -119,13 +124,13 @@ def reply(required: bool = False):
     @Depends
     async def _reply(
             matcher: Matcher,
-            event: MessageEvent) -> Union[Reply, None]:
+            event: MessageEvent) -> Union[Message, None]:
         if required and not event.reply:
             await matcher.finish(
                 "\n必须回复一条消息才能使用此功能",
                 at_sender=True
             )
-        return event.reply
+        return event.reply.content()
     return _reply
 
 
@@ -133,29 +138,34 @@ def reply(required: bool = False):
 def strict_to_me(event: MessageEvent) -> bool:
     if event.original_message['at']:
         if (
-            event.original_message['at', 0].data['qq'] == str(event.self_id)
-            or
-            event.message_type == 'private'
+                event.original_message['at',
+                                       0].data['qq'] == str(event.self_id)
+                or
+                event.message_type == 'private'
         ):
             return True
     return False
 
-async def get_replies(reply: Reply, bot: Bot) -> List[Reply]:
-    if reply.message['reply']:
-        return (
-            await get_replies(
-                Reply.model_validate(
-                    await bot.get_msg(
-                        message_id=reply.message['reply',0].data['id']
-                    )
-                ),
-                bot
-            )
-            +
-            [reply]
-        )
-    return [reply]
 
-@Depends
-async def get_flow_replies(replied: Annotated[Optional[Reply], reply()], bot: Bot) -> Optional[List[Reply]]:
-    return await get_replies(replied, bot) if replied else None
+# async def replies(_reply: SatoriMessage, bot: Bot) -> List[RenderMessage]:
+#     r = [_reply]
+#     while _reply.message['reply']:
+#         return (
+#             await get_replies(
+#                 reply.model_validate(
+#                     await bot.get_msg(
+#                         message_id=reply.message['RenderMessage',
+#                                                  0].data['id']
+#                     )
+#                 ),
+#                 bot
+#             )
+#             +
+#             [reply]
+#         )
+#     return [reply]
+
+
+# @Depends
+# async def get_flow_replies(replied: Annotated[Optional[RenderMessage], reply()], bot: Bot) -> Optional[List[RenderMessage]]:
+#     return await get_replies(replied, bot) if replied else None
