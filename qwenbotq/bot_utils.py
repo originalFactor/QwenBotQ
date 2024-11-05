@@ -19,27 +19,35 @@
 供主体使用的Bot实用函数
 '''
 
-from typing import Union, Annotated, List, Optional, Sequence
+from typing import Annotated, List, Optional, Sequence
+from datetime import date
 
 from nonebot.adapters.onebot.v11 import Bot, MessageEvent, Message
 from nonebot.adapters.onebot.v11.event import Reply
 from nonebot.matcher import Matcher
-from nonebot.params import CommandArg, Depends
+from nonebot.params import CommandArg, Depends, EventMessage
 from nonebot.rule import Rule
 
 from .database import User
 
 
-@Depends
-async def event_original_message(event: MessageEvent) -> Message:
-    '获取事件的原始消息（未去除@bot和回复）'
-    return event.original_message
+async def get_user(_id: str, nick: Optional[str], bot: Bot):
+    '获取用户'
+    user = await User.get(_id)
+    if not user:
+        user = User(id=_id)
+        await user.insert()
+    if user.profile_expire <= date.today():
+        await user.set({User.nick: (await bot.get_stranger_info(user_id=_id))['nickname']})
+    if nick:
+        user.nick = nick
+    return user
 
 def require(cost_permission: int = 0, cost_coins: int = 0, only_check: bool = False):
     "用于获取发送用户的权限函数，可指定最小权限等级以及消耗积分数量"
     @Depends
     async def _require(event: MessageEvent, matcher: Matcher, bot: Bot) -> User:
-        user = await User.get(event.user_id, bot)
+        user = await get_user(event.get_user_id(), event.sender.nickname, bot)
         if user.permission < cost_permission:
             await matcher.finish(
                 f"\n您的权限不足，至少需要{cost_permission}。",
@@ -52,14 +60,11 @@ def require(cost_permission: int = 0, cost_coins: int = 0, only_check: bool = Fa
                     at_sender=True
                 )
             if not only_check:
-                user.coins -= cost_coins
-                await user.update()
+                await user.inc({User.coins: -cost_coins})
                 await matcher.send(
                     f"\n您已被扣除所需的{cost_coins}点积分！",
                     at_sender=True
                 )
-        if event.sender.nickname:
-            user.nick = event.sender.nickname
         return user
     return _require
 
@@ -76,7 +81,7 @@ def arg(tp: type, least: int = 0):
     async def _arg(
             matcher: Matcher,
             args: Annotated[str, arg_plain_text]
-    ) -> List[tp]:
+    ) -> List[tp]: # type: ignore
         try:
             if len(x := list(map(tp, args.strip().split()))) >= least:
                 return x
@@ -98,12 +103,12 @@ def mentioned(least: int = 0):
     async def _mentioned(
         matcher: Matcher,
         bot: Bot,
-        msg: Annotated[Message, event_original_message],
+        msg: Annotated[Message, EventMessage()],
         args: Annotated[Sequence[str], arg(str)]
     ) -> List[User]:
         mentioned_users = (
-            [await User.get(_.data['qq'], bot) for _ in msg['at']]+
-            [await User.get(_[1:], bot) for _ in args if _.startswith('@')]
+            [await get_user(_.data['qq'], _.data['name'], bot) for _ in msg['at']]+
+            [await get_user(_[1:], None, bot) for _ in args if _.startswith('@')]
         )
         if len(mentioned_users) >= least:
             return mentioned_users
@@ -115,11 +120,11 @@ def mentioned(least: int = 0):
 
 
 def reply(required: bool = False):
-    "The dependency for replied message"
+    "获取单条回复信息"
     @Depends
     async def _reply(
             matcher: Matcher,
-            event: MessageEvent) -> Union[Reply, None]:
+            event: MessageEvent) -> Optional[Reply]:
         if required and not event.reply:
             await matcher.finish(
                 "\n必须回复一条消息才能使用此功能",
@@ -130,32 +135,30 @@ def reply(required: bool = False):
 
 
 @Rule
-def strict_to_me(event: MessageEvent) -> bool:
-    if event.original_message['at']:
-        if (
-            event.original_message['at', 0].data['qq'] == str(event.self_id)
-            or
-            event.message_type == 'private'
-        ):
+async def strict_to_me(event: MessageEvent) -> bool:
+    '剔除掉回复的隐藏@后的提及我'
+    if event.to_me and (event.message_type == 'private' or not event.reply):
+        return True
+    for segment in event.message['at']:
+        if segment.data['qq'] == str(event.self_id):
             return True
     return False
 
-async def get_replies(reply: Reply, bot: Bot) -> List[Reply]:
-    if reply.message['reply']:
-        return (
-            await get_replies(
-                Reply.model_validate(
-                    await bot.get_msg(
-                        message_id=reply.message['reply',0].data['id']
-                    )
-                ),
-                bot
-            )
-            +
-            [reply]
-        )
-    return [reply]
-
 @Depends
-async def get_flow_replies(replied: Annotated[Optional[Reply], reply()], bot: Bot) -> Optional[List[Reply]]:
-    return await get_replies(replied, bot) if replied else None
+async def get_flow_replies(
+    replied: Annotated[Optional[Reply], reply()],
+    bot: Bot
+    ) -> Optional[List[Reply]]:
+    '获取回复链'
+    if not replied:
+        return None
+    replies = [replied]
+    while replies[-1].message['reply']:
+        replies.append(
+            Reply.model_validate(
+                await bot.get_msg(
+                    message_id=replies[-1].message['reply',0].data['id']
+                )
+            )
+        )
+    return reversed(replies)

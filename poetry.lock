@@ -53,6 +53,37 @@ doc = ["doc8", "sphinx (>=7.0.0)", "sphinx-autobuild", "sphinx-autodoc-typehints
 test = ["dateparser (==1.*)", "pre-commit", "pytest", "pytest-cov", "pytest-mock", "pytz (==2021.1)", "simplejson (==3.*)"]
 
 [[package]]
+name = "beanie"
+version = "1.27.0"
+description = "Asynchronous Python ODM for MongoDB"
+optional = false
+python-versions = "<4.0,>=3.7"
+files = [
+    {file = "beanie-1.27.0-py3-none-any.whl", hash = "sha256:2cc6762bdd59b9040dd004ecbc7d4fd5ddd22e52743915e38d1f0f92f276bcaf"},
+    {file = "beanie-1.27.0.tar.gz", hash = "sha256:a5eee40f1e52214afeb8558c0823d7504856884770c3d56fc3cd5765efb87314"},
+]
+
+[package.dependencies]
+click = ">=7"
+lazy-model = "0.2.0"
+motor = ">=2.5.0,<4.0.0"
+pydantic = ">=1.10,<3.0"
+toml = "*"
+typing-extensions = ">=4.7"
+
+[package.extras]
+aws = ["motor[aws] (>=2.5.0,<4.0.0)"]
+ci = ["requests", "toml", "types-requests"]
+doc = ["Markdown (>=3.3)", "Pygments (>=2.8.0)", "jinja2 (>=3.0.3)", "mkdocs (>=1.4)", "mkdocs-material (>=9.0)", "pydoc-markdown (>=4.8)"]
+encryption = ["motor[encryption] (>=2.5.0,<4.0.0)"]
+gssapi = ["motor[gssapi] (>=2.5.0,<4.0.0)"]
+ocsp = ["motor[ocsp] (>=2.5.0,<4.0.0)"]
+queue = ["beanie-batteries-queue (>=0.2)"]
+snappy = ["motor[snappy] (>=2.5.0,<4.0.0)"]
+test = ["asgi-lifespan (>=1.0.1)", "dnspython (>=2.1.0)", "fastapi (>=0.100)", "flake8 (>=3)", "httpx (>=0.23.0)", "pre-commit (>=2.3.0)", "pydantic-extra-types (>=2)", "pydantic-settings (>=2)", "pydantic[email]", "pyright (>=0)", "pytest (>=6.0.0)", "pytest-asyncio (>=0.21.0)", "pytest-cov (>=2.8.1)"]
+zstd = ["motor[zstd] (>=2.5.0,<4.0.0)"]
+
+[[package]]
 name = "binaryornot"
 version = "0.4.4"
 description = "Ultra-lightweight pure Python package to check if a file is binary or text."
@@ -309,26 +340,6 @@ files = [
 test = ["pytest (>=6)"]
 
 [[package]]
-name = "fastapi"
-version = "0.115.0"
-description = "FastAPI framework, high performance, easy to learn, fast to code, ready for production"
-optional = false
-python-versions = ">=3.8"
-files = [
-    {file = "fastapi-0.115.0-py3-none-any.whl", hash = "sha256:17ea427674467486e997206a5ab25760f6b09e069f099b96f5b55a32fb6f1631"},
-    {file = "fastapi-0.115.0.tar.gz", hash = "sha256:f93b4ca3529a8ebc6fc3fcf710e5efa8de3df9b41570958abf1d97d843138004"},
-]
-
-[package.dependencies]
-pydantic = ">=1.7.4,<1.8 || >1.8,<1.8.1 || >1.8.1,<2.0.0 || >2.0.0,<2.0.1 || >2.0.1,<2.1.0 || >2.1.0,<3.0.0"
-starlette = ">=0.37.2,<0.39.0"
-typing-extensions = ">=4.8.0"
-
-[package.extras]
-all = ["email-validator (>=2.0.0)", "fastapi-cli[standard] (>=0.0.5)", "httpx (>=0.23.0)", "itsdangerous (>=1.1.0)", "jinja2 (>=2.11.2)", "orjson (>=3.2.1)", "pydantic-extra-types (>=2.0.0)", "pydantic-settings (>=2.0.0)", "python-multipart (>=0.0.7)", "pyyaml (>=5.3.1)", "ujson (>=4.0.1,!=4.0.2,!=4.1.0,!=4.2.0,!=4.3.0,!=5.0.0,!=5.1.0)", "uvicorn[standard] (>=0.12.0)"]
-standard = ["email-validator (>=2.0.0)", "fastapi-cli[standard] (>=0.0.5)", "httpx (>=0.23.0)", "jinja2 (>=2.11.2)", "python-multipart (>=0.0.7)", "uvicorn[standard] (>=0.12.0)"]
-
-[[package]]
 name = "filelock"
 version = "3.16.1"
 description = "A platform independent file lock."
@@ -572,6 +583,20 @@ files = [
     {file = "jiter-0.5.0-cp39-none-win_amd64.whl", hash = "sha256:ce03f7b4129eb72f1687fa11300fbf677b02990618428934662406d2a76742a1"},
     {file = "jiter-0.5.0.tar.gz", hash = "sha256:1d916ba875bcab5c5f7d927df998c4cb694d27dceddf3392e58beaf10563368a"},
 ]
+
+[[package]]
+name = "lazy-model"
+version = "0.2.0"
+description = ""
+optional = false
+python-versions = ">=3.7,<4.0"
+files = [
+    {file = "lazy-model-0.2.0.tar.gz", hash = "sha256:57c0e91e171530c4fca7aebc3ac05a163a85cddd941bf7527cc46c0ddafca47c"},
+    {file = "lazy_model-0.2.0-py3-none-any.whl", hash = "sha256:5a3241775c253e36d9069d236be8378288a93d4fc53805211fd152e04cc9c342"},
+]
+
+[package.dependencies]
+pydantic = ">=1.9.0"
 
 [[package]]
 name = "loguru"
@@ -1447,24 +1472,6 @@ files = [
 ]
 
 [[package]]
-name = "starlette"
-version = "0.38.5"
-description = "The little ASGI library that shines."
-optional = false
-python-versions = ">=3.8"
-files = [
-    {file = "starlette-0.38.5-py3-none-any.whl", hash = "sha256:632f420a9d13e3ee2a6f18f437b0a9f1faecb0bc42e1942aa2ea0e379a4c4206"},
-    {file = "starlette-0.38.5.tar.gz", hash = "sha256:04a92830a9b6eb1442c766199d62260c3d4dc9c4f9188360626b1e0273cb7077"},
-]
-
-[package.dependencies]
-anyio = ">=3.4.0,<5"
-typing-extensions = {version = ">=3.10.0", markers = "python_version < \"3.10\""}
-
-[package.extras]
-full = ["httpx (>=0.22.0)", "itsdangerous", "jinja2", "python-multipart (>=0.0.7)", "pyyaml"]
-
-[[package]]
 name = "text-unidecode"
 version = "1.3"
 description = "The most basic Text::Unidecode port"
@@ -1473,6 +1480,17 @@ python-versions = "*"
 files = [
     {file = "text-unidecode-1.3.tar.gz", hash = "sha256:bad6603bb14d279193107714b288be206cac565dfa49aa5b105294dd5c4aab93"},
     {file = "text_unidecode-1.3-py2.py3-none-any.whl", hash = "sha256:1311f10e8b895935241623731c2ba64f4c455287888b18189350b67134a822e8"},
+]
+
+[[package]]
+name = "toml"
+version = "0.10.2"
+description = "Python Library for Tom's Obvious, Minimal Language"
+optional = false
+python-versions = ">=2.6, !=3.0.*, !=3.1.*, !=3.2.*"
+files = [
+    {file = "toml-0.10.2-py2.py3-none-any.whl", hash = "sha256:806143ae5bfb6a3c6e736a764057db0e6a0e05e338b5630894a5f779cabb4f9b"},
+    {file = "toml-0.10.2.tar.gz", hash = "sha256:b3bda1d108d5dd99f4a20d24d9c348e91c4db7ab1b749200bded2f839ccbe68f"},
 ]
 
 [[package]]
@@ -1937,4 +1955,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9, <4.0"
-content-hash = "c48793276ccba4eb8c20c22f3fda1681a3217785ff1de4469ca50eafc3453451"
+content-hash = "84c464b8da41c6ab32bfe870ee4141a1262de36dea15b46759303693d337bda9"

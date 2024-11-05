@@ -15,148 +15,114 @@
 # You should have received a copy of the GNU General Public License
 # along with QwenBotQ.  If not, see <https://www.gnu.org/licenses/>.
 
-'The database module of QwenBotQ'
+'数据库模块'
 
 # standard import
-from typing import List, Union, Annotated, Optional
-from datetime import datetime, timedelta
+from typing import Optional, Sequence, Dict
+from datetime import date, timedelta
 
 # third-party import
-from httpx import HTTPError
+from nonebot import get_driver
+from nonebot.log import logger
+from beanie import Document, Indexed, init_beanie
+from pydantic import BaseModel
 from motor.motor_asyncio import AsyncIOMotorClient
-from nonebot import logger
-from nonebot.adapters.onebot.v11 import Bot
-from pydantic import BaseModel, Field, ConfigDict
-from pymongo import MongoClient
 
 # local import
-from . import config, http_client
-
-# Database Client Initialize
-database = AsyncIOMotorClient(config.mongo_uri)[config.mongo_db]
-users = database['users']
-couples = database['couples']
+from . import config
 
 
-class User(BaseModel):
-    'The user model of QwenBotQ'
+class Mongo:
+    'nonebot_plugin_mongodb 修复内嵌版'
+    _client: AsyncIOMotorClient = None
 
-    id: Annotated[str, Field(alias='_id')]
+    @classmethod
+    def client(cls) -> AsyncIOMotorClient:
+        "MongoDB 客户端"
+        if cls._client:
+            return cls._client
+        try:
+            logger.info("正在初始化MongoDB客户端...")
+            cls._client = AsyncIOMotorClient(config.mongo_uri)
+        except Exception as e:
+            raise RuntimeError("MongoDB客户端初始化失败") from e
+        # if cls._client.get(plugin_config.mongo_database_name)
+
+    @classmethod
+    async def register_models(cls, document_models: Sequence[Document]):
+        '注册模型'
+        cls.client()
+        database = getattr(cls._client, config.mongo_db)
+        await init_beanie(database, document_models=document_models)
+
+
+class Binded(BaseModel):
+    '绑定用户'
+    id: str
+    expire: date
+
+
+class User(Document):
+    '用户文档'
+    id: Indexed(str)  # type: ignore
+    nick: str = 'Unknown'
     permission: int = 0
     system_prompt: str = config.system_prompt
     coins: int = 0
-    sign_expire: datetime = datetime(1970, 1, 1)
-    nick:str = 'Unknown'
-    avatar: bytes = b''
-    model:str = list(config.models.keys())[0]
-    profile_expire: datetime = datetime(1970, 1, 1)
+    sign_expire: date = date.min
+    model: str = list(config.models.keys())[0]
+    binded: Optional[Binded] = None
+    profile_expire: date = date.min
 
-    @classmethod
-    async def min_get(cls, id: Union[str,int])->'User':
-        'Get user from database'
-        user = cls.model_validate(_ if (_:=await users.find_one({'_id':str(id)})) else {'_id':str(id)})
-        if not _: await user.write()
-        return user
 
-    @classmethod
-    async def get(cls, id: Union[str,int], bot:Bot) -> 'User':
-        'Get user from database'
-        doc = await cls.min_get(id)
-        if doc.profile_expire < datetime.now():
-            doc.nick = (await bot.get_stranger_info(user_id=int(id)))['nickname']
-            try:
-                resp = await http_client.get(f'https://q.qlogo.cn/g?b=qq&nk={id}&s=640')
-                resp.raise_for_status()
-            except HTTPError as e:
-                logger.warning(f'Failed to get avatar of user {id}: {e}\n\tUsing empty avatar.')
-            else:
-                doc.avatar = resp.content
-            doc.profile_expire = datetime.now() + timedelta(1)
-            await doc.update()
-        return doc
+async def apply_bind(a: User, b: User) -> date:
+    '应用一个绑定'
+    expire = date.today()+timedelta(1)
+    a.binded = Binded(id=b.id, expire=expire)
+    b.binded = Binded(id=a.id, expire=expire)
+    return expire
 
-    async def remove(self):
-        'Remove user from database'
-        await users.delete_many({'_id': self.id})
 
-    async def write(self):
-        'Write user to database'
-        await self.remove()
-        await users.insert_one(self.model_dump(by_alias=True))
+@get_driver().on_startup
+async def initialize_database():
+    '初始化数据库'
 
-    async def update(self):
-        'Update user to database'
-        await users.update_one(
-            {'_id': self.id},
-            {'$set': self.model_dump(by_alias=True)}
+    # 引擎初始化
+
+    document_models = Document.__subclasses__()
+    if not document_models:
+        raise RuntimeError("没有有效的文档子类")
+
+    # 检查重复模型
+    document_names: Dict[str, str] = {}
+    for cls in document_models:
+        cls_path = f"{cls.__module__}.{cls.__name__}"
+        try:
+            cls_name = cls.Settings.name.lower()
+        except AttributeError:
+            cls_name = cls.__name__.lower()
+        if cls_name in document_names:
+            clashed_cls_path = document_names[cls_name]
+            raise RuntimeError(
+                f"重复的文档子类: {cls_name} 来自 {cls_path} 和 {clashed_cls_path}"
+            )
+        else:
+            document_names[cls_name] = cls_path
+
+    logger.debug(
+        "正在初始化MongoDB文档:\n"
+        + "\n".join(
+            [
+                f"{cls_name} (来自 {cls_path})"
+                for cls_name, cls_path in document_names.items()
+            ]
         )
+    )
 
-    @property
-    async def couple(self)->Optional['CoupleInfo']:
-        'Get the couple user'
-        return _ if (_:=await CoupleInfo.get(self.id)) and _.expire > datetime.now() else None
-
-    class Config:
-        by_alias = True
+    await Mongo.register_models(document_models)
 
 
-class Couple(BaseModel):
-    'The couple model of QwenBotQ'
-    A: str
-    B: str
-    expire: datetime
-
-    @classmethod
-    async def get(cls, id: Union[str,int])->Optional['Couple']:
-        'Get couple from database'
-        return cls.model_validate(_) if (_:=await couples.find_one({'$or':[{'A':str(id)}, {'B':str(id)}]})) else None
-
-    @classmethod
-    async def _delete(cls, id: Union[str,int]):
-        'Delete couples from database'
-        await couples.delete_many({'$or':[{'A':str(id)}, {'B':str(id)}]})
-
-    async def delete(self):
-        'Delete this couple from database'
-        await self._delete(self.A)
-        await self._delete(self.B)
-
-    async def apply(self):
-        await self.delete()
-        await couples.insert_one(self.model_dump(by_alias=True))
-
-    async def update(self):
-        await couples.update_one(
-            {'$or':[{'A':self.A},{'B':self.B}]},
-            {'$set': self.model_dump(by_alias=True)}
-        )
-
-class CoupleInfo(BaseModel):
-    user: User
-    expire: datetime
-
-    @classmethod
-    async def get(cls, id: Union[str,int])->Optional['CoupleInfo']:
-        'Get couple info from database'
-        return cls.model_validate({
-            'user': await User.min_get(cp.B if cp.A == str(id) else cp.A),
-            'expire': cp.expire
-        }) if (cp := await Couple.get(id)) else None
-
-async def get_top10_users() -> List[User]:
-    'Get the top 10 users sorted by coins'
-    result = []
-    async for document in users.find({}).sort('coins', -1).limit(10):
-        result.append(User.model_validate(document))
-    return result
-
-# Database initialization
-client = MongoClient(config.mongo_uri)[config.mongo_db]
-for superuser in config.supermgr_ids:
-    if not client['users'].find_one({'_id': superuser}):
-        client['users'].insert_one(User.model_validate({'_id': superuser, 'permission': 3}).model_dump(by_alias=True))
-index_info = client['couples'].index_information()
-if 'A' not in index_info:
-    client['couples'].create_index(['A'], unique=True)
-if 'B' not in index_info:
-    client['couples'].create_index(['B'], unique=True)
+    # 初始化管理员
+    for superuser in config.supermgr_ids:
+        if not await User.get(superuser):
+            await User(id=superuser, permission=3).insert()

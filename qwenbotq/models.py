@@ -15,31 +15,30 @@
 # You should have received a copy of the GNU General Public License
 # along with QwenBotQ.  If not, see <https://www.gnu.org/licenses/>.
 
-'机器人启动文件'
+'一些额外的模型'
 
-from sys import stdout
-from os import environ
-import nonebot
-from nonebot.adapters.onebot.v11 import Adapter as OnebotV11Adapter
-from nonebot.log import logger_id, default_filter
+from datetime import datetime
+from pydantic import BaseModel, field_validator
 
-# 作为服务运行时不重复输出时间
-if environ.get('RUNNING_AS_SERVICE', 'no') == 'yes':
-    nonebot.logger.remove(logger_id)
-    nonebot.logger.add(
-        stdout,
-        level=0,
-        diagnose=True,
-        format="[<lvl>{level}</lvl>] <c><u>{name}</u></c> | {message}",
-        filter=default_filter
-    )
 
-nonebot.init()
+class EssenceMessage(BaseModel):
+    '精华消息模型'
+    sender_id: str
+    sender_nick: str
+    sender_time: datetime
+    operator_id: str
+    operator_nick: str
+    operator_time: datetime
+    message_id: int
 
-driver = nonebot.get_driver()
-driver.register_adapter(OnebotV11Adapter)
+    @field_validator('sender_id', 'operator_id', mode='before')
+    @classmethod
+    def validate_id(cls, v:int) -> str:
+        '校验id'
+        return str(v)
 
-nonebot.load_plugin("qwenbotq")
-
-if __name__ == "__main__":
-    nonebot.run()
+    @field_validator('sender_time', 'operator_time', mode='before')
+    @classmethod
+    def validate_time(cls, v:int) -> datetime:
+        '校验日期'
+        return datetime.fromtimestamp(v)
