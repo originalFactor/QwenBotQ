@@ -67,12 +67,12 @@ async def llm(
         usage: int = Tokenization.call(user.model, messages=messages, api_key=config.api_key)\
             .usage['input_tokens']
         if ceil(
-            usage * config.models[user.model].input_cost
+            usage/1000 * config.models[user.model].input_cost
             +
             config.models[user.model].output_cost
         ) > user.coins:
             await LLMMatcher.finish(
-                '\n输入上下文大小已超过积分余额所能负担的最大值。',
+                f'\n输入上下文大小 {usage} tokens 已超过积分余额所能负担的最大值。',
                 at_sender=True
             )
         if config.models[user.model].max_tokens is not None:
@@ -102,7 +102,7 @@ async def llm(
             )
             await user.inc({User.coins: -usage})
             await LLMMatcher.finish(
-                '\n'+response.output.choices[0].message.content+'\n'
+                response.output.choices[0].message.content+'\n'
                 f'-( 本次共消耗{usage}积分 )-',
                 reply_message=True
             )

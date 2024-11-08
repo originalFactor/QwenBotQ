@@ -146,7 +146,8 @@ async def check_and_push(session: ClientSession):
                 'https://api.live.bilibili.com/xlive/web-ucenter/user/following',
                 {
                     'page': this_page,
-                    'ignore_record': 1,
+                    'page_size': 10,
+                    'ignoreRecord': 1,
                     'hit_ab': 1
                 }
             )):
