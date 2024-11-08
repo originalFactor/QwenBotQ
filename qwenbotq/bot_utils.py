@@ -38,7 +38,7 @@ async def get_user(_id: str, nick: Optional[str], bot: Bot):
         user = User(id=_id)
         await user.insert()
     if user.profile_expire <= date.today():
-        await user.set({User.nick: (await bot.get_stranger_info(user_id=_id))['nickname']})
+        await user.set({User.nick: (await bot.get_stranger_info(user_id=int(_id)))['nickname']})
     if nick:
         user.nick = nick
     return user

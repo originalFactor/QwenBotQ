@@ -61,7 +61,6 @@ class Binded(BaseModel):
     id: str
     expire: date
 
-
 class User(Document):
     '用户文档'
     id: Indexed(str)  # type: ignore
@@ -73,6 +72,11 @@ class User(Document):
     model: str = list(config.models.keys())[0]
     binded: Optional[Binded] = None
     profile_expire: date = date.min
+
+class SubscribeStatus(Document):
+    id: str
+    last_update: str = ''
+    living: bool = False
 
 
 async def apply_bind(a: User, b: User) -> date:

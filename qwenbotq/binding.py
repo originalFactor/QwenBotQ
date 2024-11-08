@@ -67,7 +67,7 @@ async def wife(
         expire = user.binded.expire
     else:
         x = choice(await bot.get_group_member_list(group_id=event.group_id))
-        cp_user = await get_user(x['user_id'], x['nickname'], bot)
+        cp_user = await get_user(str(x['user_id']), x['nickname'], bot)
         expire = await apply_bind(user, cp_user)
     await WifeMatcher.finish(
         '\n你今天的老公是：' +
@@ -102,7 +102,7 @@ async def fork(
     _: Annotated[User, require(0, config.fork_cost)],
     replied: Annotated[Reply, reply(True)]):
     '应用老搭'
-    if replied.sender.user_id not in config.trusted_wife_source:
+    if str(replied.sender.user_id) not in config.trusted_wife_source:
         await ForkMatcher.finish(
             '\n请使用可信的数据源！',
             at_sender=True

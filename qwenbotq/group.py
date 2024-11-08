@@ -18,8 +18,9 @@
 '群组相关功能'
 
 from random import choice
+from typing import Mapping, Union
 from nonebot import on_command
-from nonebot.adapters.onebot.v11 import GroupMessageEvent, Bot
+from nonebot.adapters.onebot.v11 import GroupMessageEvent, Bot, Message
 from nonebot.adapters.onebot.v11.event import Reply
 from .models import EssenceMessage
 
@@ -47,22 +48,45 @@ async def group_members(event: GroupMessageEvent, bot: Bot):
     )
 
 
-RandomEssenceMatcher = on_command('掏精', block=True)
+async def essence_formatter(essence: Mapping[str, Union[int, str]], bot: Bot)->Message:
+    '格式化精华消息'
+    e = EssenceMessage.model_validate(essence)
+    msg = Reply.model_validate(await bot.get_msg(message_id=e.message_id))
+    return (
+        f'{e.sender_nick} ({e.sender_id})\n'
+        f'{e.sender_time.strftime("%Y/%m/%d %H:%M:%S")}：\n\t'+
+        msg.message+
+        f'\n由 {e.operator_nick} ({e.operator_id}) 于\n\t'
+        f'{e.operator_time} 设置。'
+    )
+
+
+RandomEssenceMatcher = on_command('精华', block=True)
 
 @RandomEssenceMatcher.handle()
 async def random_essence(event: GroupMessageEvent, bot: Bot):
     '获取随机群精华'
-    essence = EssenceMessage.model_validate(
-        choice(
-            await bot.get_essence_msg_list(group_id=event.group_id)
-        )
-    )
-    msg = Reply.model_validate(await bot.get_msg(message_id=essence.message_id))
     await RandomEssenceMatcher.finish(
-        f'\n{essence.sender_nick} ({essence.sender_id})\n'
-        f'{essence.sender_time.strftime("%Y/%m/%d %H:$M:%S")}：\n\t'+
-        msg+
-        f'\n由 {essence.operator_nick} ({essence.operator_id}) 于\n\t'
-        f'{essence.operator_time} 设置。',
+        '\n随机群精华：\n'+
+        await essence_formatter(
+            choice(
+                await bot.get_essence_msg_list(group_id=event.group_id)
+            ),
+            bot
+        ),
+        at_sender=True
+    )
+
+
+EssenceMatcher = on_command('精华列表', block=True)
+
+@EssenceMatcher.handle()
+async def essences(event: GroupMessageEvent, bot: Bot):
+    '读取群精华列表'
+    msg: Message = '\n群精华列表：'
+    for _ in await bot.get_essence_msg_list(group_id=event.group_id):
+        msg += '\n\n' + await essence_formatter(_, bot)
+    await EssenceMatcher.finish(
+        msg,
         at_sender=True
     )

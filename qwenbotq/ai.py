@@ -17,10 +17,12 @@
 
 'AI助手模块'
 
+from http import HTTPStatus
 from math import ceil
 from typing import Annotated, Optional, Sequence
 from urllib.error import HTTPError
-from openai import AsyncOpenAI
+from dashscope import AioGeneration, Tokenization
+from dashscope.api_entities.dashscope_response import GenerationResponse
 from nonebot import on_message, on_command
 from nonebot.params import EventPlainText
 from nonebot.adapters.onebot.v11 import Bot
@@ -33,13 +35,6 @@ from .bot_utils import (
     strict_to_me,
     arg_plain_text
 )
-from .utils import sum_tokens
-
-# 初始化OpenAI客户端
-openai = AsyncOpenAI(
-    api_key=config.api_key,
-    base_url=config.base_url
-)
 
 
 # 大模型回复匹配器
@@ -47,7 +42,7 @@ LLMMatcher = on_message(strict_to_me, priority=20)
 
 @LLMMatcher.handle()
 async def llm(
-        user: Annotated[User, require(0,1,True)],
+        user: Annotated[User, require()],
         prompt: Annotated[str, EventPlainText()],
         replies: Annotated[Optional[Sequence[Reply]], get_flow_replies],
         bot: Bot
@@ -56,7 +51,7 @@ async def llm(
     if user.model not in config.models.keys():
         await user.set({User.model: list(config.models.keys())[0]})
         await LLMMatcher.send(
-            f'\n您所选模型已下线，已自动为您切换可用的{user.model}模型',
+            f'\n您所选模型已下线，已自动为您切换可用的 {config.models[user.model].name} 模型',
             at_sender=True
         )
     if prompt:
@@ -69,33 +64,55 @@ async def llm(
         ] + [
            {'role': 'user', 'content': prompt}
         ]
-        if sum_tokens(messages) >= config.models[user.model][2]:
+        usage: int = Tokenization.call(user.model, messages=messages, api_key=config.api_key)\
+            .usage['input_tokens']
+        if ceil(
+            usage * config.models[user.model].input_cost
+            +
+            config.models[user.model].output_cost
+        ) > user.coins:
             await LLMMatcher.finish(
-                '\n上下文长度超过模型能够处理的最长长度',
+                '\n输入上下文大小已超过积分余额所能负担的最大值。',
                 at_sender=True
             )
+        if config.models[user.model].max_tokens is not None:
+            if usage > config.models[user.model].max_tokens:
+                await LLMMatcher.finish(
+                    '\n上下文长度超过模型能够处理的最长长度',
+                    at_sender=True
+                )
         try:
-            response = await openai.chat.completions.create(
-                model=user.model,
-                messages=messages
+            response: GenerationResponse = await AioGeneration.call(
+                user.model,
+                api_key=config.api_key,
+                messages=messages,
+                result_format='message',
+                enable_search=True
             )
         except HTTPError as e:
             await LLMMatcher.finish(
                 f"\n错误：{e}",
                 at_sender=True
             )
-        else:
+        if response.status_code == HTTPStatus.OK:
             usage = ceil(
-                response.usage.prompt_tokens/1000*config.models[user.model][0]
+                response.usage.input_tokens/1000*config.models[user.model].input_cost
                 +
-                response.usage.completion_tokens/1000*config.models[user.model][1]
+                response.usage.output_tokens/1000*config.models[user.model].output_cost
             )
             await user.inc({User.coins: -usage})
             await LLMMatcher.finish(
-                '\n'+response.choices[0].message.content+'\n'
+                '\n'+response.output.choices[0].message.content+'\n'
                 f'-( 本次共消耗{usage}积分 )-',
                 reply_message=True
             )
+        await LLMMatcher.finish(
+            f'\n服务器返回异常状态码 {response.status_code}，详情：\n'
+            f'请求ID: {response.request_id}\n'
+            f'错误代码：{response.code}\n'
+            f'错误详情：{response.message}',
+            at_sender=True
+        )
     await LLMMatcher.finish(
         "\n虽然你啥也没说，但是我记住你了！",
         at_sender=True
@@ -126,15 +143,19 @@ async def model_change(
     '更改模型'
     if not args or args not in config.models:
         await ModelChangeMatcher.finish(
-            '\n请指定一个正确的目标模型。\n支持的模型：\n\t模型\t输入消耗\t输出消耗\t最大上下文\n\t'+
-            ('\n\t'.join([
-                f'{_[0]}\t{_[1][0]}\t{_[1][1]}\t{_[1][2]}'
+            '\n请指定一个正确的目标模型。\n支持的模型：\n\n'+
+            ('\n\n'.join([
+                f'ID: {_[0]}\n'
+                f'名称: {_[1].name}\n'
+                f'输入消耗倍率：{_[1].input_cost}\n'
+                f'输出消耗倍率：{_[1].output_cost}\n'
+                f'最长输入长度：{_[1].max_tokens} token\n'
+                f'简介：{_[1].detail}'
                 for _ in config.models.items()
             ]))+
-            '\n注：消耗计算方式：接口给出的消耗Token数/1000*倍率，消耗积分。',
+            '\n\n注：消耗计算方式：接口给出的消耗Token数/1000*倍率，消耗积分。',
             at_sender=True
         )
-    user.model = args
     await user.set({User.model: args})
     await ModelChangeMatcher.finish(
         '\n成功为您更换模型。',

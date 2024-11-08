@@ -18,7 +18,7 @@
 'QwenBotQ 主要部分'
 
 from importlib import import_module
-from nonebot import get_plugin_config
+from nonebot import get_plugin_config, require
 from nonebot.plugin import PluginMetadata
 from .configModel import Config
 
@@ -34,10 +34,14 @@ __plugin_meta__ = PluginMetadata(
 
 config = get_plugin_config(Config)
 
+# 声明依赖
+require("nonebot_plugin_apscheduler")
 
 # 导入功能模块
 import_module(".usersystem", __package__)
 import_module(".ai", __package__)
 import_module(".binding", __package__)
+import_module(".group", __package__)
+import_module(".bilinotice", __package__)
 
 # 因为auotopep8和pylint都要求在代码之前导入，但是这样就获取不到正确的config对象，所以我只能另辟蹊径了XwX
