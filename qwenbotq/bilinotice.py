@@ -196,4 +196,6 @@ async def on_startup():
 
 @get_driver().on_shutdown
 async def on_shutdown():
-    await pool[-1].close()
+    '关闭客户端session'
+    for session in pool:
+        await session.close()
