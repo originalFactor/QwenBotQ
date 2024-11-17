@@ -161,4 +161,4 @@ async def get_flow_replies(
                 )
             )
         )
-    return reversed(replies)
+    return list(reversed(replies))
