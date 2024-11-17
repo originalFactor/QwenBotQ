@@ -20,7 +20,7 @@
 from random import choice
 from datetime import date, timedelta
 from typing import Annotated, Sequence
-from nonebot import on_command
+from nonebot import on_command, on_fullmatch
 from nonebot.adapters.onebot.v11 import GroupMessageEvent, Bot, MessageSegment
 from nonebot.adapters.onebot.v11.event import Reply
 from . import config
@@ -53,7 +53,7 @@ async def bind(
     )
 
 
-WifeMatcher = on_command('今日老公', block=True)
+WifeMatcher = on_fullmatch('今日老公', block=True)
 
 @WifeMatcher.handle()
 async def wife(
