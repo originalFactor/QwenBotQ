@@ -17,7 +17,6 @@
 
 'BiliBili动态提醒服务'
 
-from enum import Enum
 from http import HTTPStatus
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Union
 from urllib.error import HTTPError
@@ -26,37 +25,18 @@ from datetime import datetime, timedelta
 from aiohttp import ClientSession
 from nonebot import get_driver, get_bot
 from nonebot.log import logger
-from nonebot.adapters.onebot.v11 import Bot
+from nonebot.adapters.onebot.v11 import Bot, Message, MessageSegment
 from nonebot_plugin_apscheduler import scheduler
 from . import config
 from .database import SubscribeStatus
 
-FEED_TEMPLATE = \
-'您关注的UP主 {uploader} 更新了一条动态：\n'\
-'{content}'
-
-LIVE_TEMPLATE = \
-'您关注的UP主 {uploader} 正在直播：\n'\
-'{content}'
-
-class NoticeType(str, Enum):
-    '提醒类型'
-    FEED = 'feed'
-    LIVE = 'live'
-
 async def notice(
-    event: str,
-    name: str,
-    tp: NoticeType,
+    message: Union[str, Message],
     users: Sequence[str],
     groups: Sequence[str]
     ):
     '消息提醒'
     bot: Bot = get_bot()
-    message = (FEED_TEMPLATE if tp==NoticeType.FEED else LIVE_TEMPLATE).format(
-        uploader = name,
-        content = event
-    )
     for user in users:
         await bot.send_msg(
             user_id = int(user),
@@ -67,10 +47,6 @@ async def notice(
             group_id = int(group),
             message = message
         )
-
-async def save_debug(content: bytes):
-    with open('dbg_apiresult.json', 'wb') as f:
-        f.write(content)
 
 async def api_request(
         session: ClientSession,
@@ -86,7 +62,7 @@ async def api_request(
             if resp.status != HTTPStatus.OK:
                 logger.error(f'Server returned an invalid HTTP status code: {resp.status}')
                 return None
-            await save_debug(await resp.read())
+            logger.debug(f'API returned result: {await resp.text()}')
             response = await resp.json()
     except HTTPError as e:
         logger.error(f'Network error during requesting bilibili: {e}')
@@ -96,13 +72,49 @@ async def api_request(
         return None
     return response
 
+async def parse_item(item: Mapping[str, Any]) -> Optional[Union[str, Message]]:
+    '渲染动态'
+    _type = item['type']
+    module = item['modules']
+    dynamic = module['module_dynamic']
+    desc = dynamic['desc']
+    major = dynamic['major']
+
+    head = f'您关注的UP主 {module["module_author"]["name"]} '
+    if _type == 'DYNAMIC_TYPE_FORWARD':
+        if _ := await parse_item(item['orig']):
+            return head+'转发了一条动态：\n'+_
+    elif _type == 'DYNAMIC_TYPE_AV':
+        archive = major['archive']
+        return head+'投稿了一条视频：'+\
+            MessageSegment.image(archive['cover'])+\
+            f'{archive["title"]}\n'\
+            f'https:{archive["jump_url"]}'
+    elif _type == 'DYNAMIC_TYPE_WORD':
+        return head+f'发表了一条动态：\n{desc["text"]}'
+    elif _type == 'DYNAMIC_TYPE_DRAW':
+        r = head+f'发表了一条动态：\n{desc["text"]}'
+        for img in major['draw']['items']:
+            r += MessageSegment.image(img['src'])
+        return r
+    elif _type == 'DYNAMIC_TYPE_ARTICLE':
+        article = major['article']
+        r = head+f'发表了一篇专栏：\n{article["title"]}\n{article["jump_url"]}'
+        for cover in article['covers']:
+            r += MessageSegment.image(cover)
+        return r
+    logger.warning(f'请求进行未实现的 {_type} 类型动态渲染')
+    return None
+
 async def check_and_push(session: ClientSession):
     '定期检查并推送动态及直播'
     logger.info("动态和直播推送开始检查……")
     for focus in config.focus.subscribes:
+        logger.info(f'正在检查 {focus.uid}')
         if not (status := await SubscribeStatus.get(focus.uid)):
             status = SubscribeStatus(id=focus.uid)
             await status.save()
+        logger.info('正在检查动态')
         offset = ''
         has_more = True
         last_update = ''
@@ -128,51 +140,38 @@ async def check_and_push(session: ClientSession):
                 if item['id_str'] == status.last_update:
                     has_more = False
                     break
-                if desc := item['modules']['module_dynamic']['desc']:
+                if _ := await parse_item(item):
+                    logger.info(f'找到一条新动态：\n{_}')
                     await notice(
-                        desc['text'],
-                        item['modules']['module_author']['name'],
-                        'feed',
+                        _,
                         focus.users,
                         focus.groups
                     )
-            await sleep(5)
+            await sleep(3)
         await status.set({SubscribeStatus.last_update: last_update})
-        this_page = 1
-        total_page = 1
-        while this_page <= total_page:
-            if not (response := await api_request(
-                session,
-                'https://api.live.bilibili.com/xlive/web-ucenter/user/following',
-                {
-                    'page': this_page,
-                    'page_size': 10,
-                    'ignoreRecord': 1,
-                    'hit_ab': 1
-                }
-            )):
-                break
-            data = response['data']
-            total_page = data['totalPage']
-            this_page += 1
-            finded = False
-            for room in data['list']:
-                if room['uid'] == focus.uid:
-                    if room['live_status'] and not status.living:
-                        await notice(
-                            room['title'],
-                            room['uname'],
-                            'live',
-                            focus.users,
-                            focus.groups
-                        )
-                    await status.set({SubscribeStatus.living: bool(room['live_status'])})
-                    finded = True
-                    break
-            if finded:
-                break
-            await sleep(5)
-        await sleep(5)
+        logger.info(f'动态检查完毕，最后一条动态的id：{last_update}')
+        logger.info('开始检查直播')
+        if response := await api_request(
+            session,
+            'https://api.live.bilibili.com/room/v1/Room/get_status_info_by_uids',
+            {'uids[]': [focus.uid]}
+        ):
+            data = response['data'][focus.uid]
+            if data['live_status'] and not status.living:
+                logger.info(f'用户正在直播，标题：{data["title"]}')
+                await notice(
+                    f'您关注的UP主 {data["uname"]} 正在直播：\n'
+                    f'{data["title"]}'+
+                    MessageSegment.image(data['cover_from_user'])+
+                    f'开播时间：{datetime.fromtimestamp(data["live_time"]).strftime("%Y/%m/%d %H:%M:%S")}',
+                    focus.users,
+                    focus.groups
+                )
+            elif not data['live_status'] and status.living:
+                logger.info(f'用户停止直播')
+            await status.set({SubscribeStatus.living: bool(data['live_status'])})
+        logger.info('直播检查完毕')
+        await sleep(3)
     logger.info("动态和直播推送检查完毕")
 
 pool: List[ClientSession] = []
@@ -183,7 +182,10 @@ async def on_startup():
     if config.focus:
         pool.append(ClientSession(
             cookies={'SESSDATA': config.focus.sessdata},
-            headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:132.0) Gecko/20100101 Firefox/132.0'}
+            headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:132.0) '
+                    'Gecko/20100101 Firefox/132.0'
+            }
         ))
         logger.info(f'注册了计划任务，参数 {config.focus.interval}')
         scheduler.add_job(
