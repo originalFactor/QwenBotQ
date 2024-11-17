@@ -20,7 +20,7 @@
 from importlib import import_module
 from nonebot import get_plugin_config, require
 from nonebot.plugin import PluginMetadata
-from .configModel import Config
+from .config_model import Config
 
 __plugin_meta__ = PluginMetadata(
     name="QwenBotQ",

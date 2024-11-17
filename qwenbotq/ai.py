@@ -19,11 +19,12 @@
 
 from http import HTTPStatus
 from math import ceil
-from typing import Annotated, Optional, Sequence
+from typing import Annotated, Mapping, Optional, Sequence
 from urllib.error import HTTPError
 from dashscope import AioGeneration, Tokenization
 from dashscope.api_entities.dashscope_response import GenerationResponse
 from nonebot import on_message, on_command
+from nonebot.log import logger
 from nonebot.params import EventPlainText
 from nonebot.adapters.onebot.v11 import Bot
 from nonebot.adapters.onebot.v11.event import Reply
@@ -36,6 +37,13 @@ from .bot_utils import (
     arg_plain_text
 )
 
+
+async def tokenize(model: str, messages: Sequence[Mapping[str, str]])->int:
+    if _ := Tokenization.call(model, messages=messages, api_key=config.api_key).usage:
+        return _['input_tokens']
+    else:
+        logger.warning(f'分词失败，正在忽略输入消耗……')
+        return 0
 
 # 大模型回复匹配器
 LLMMatcher = on_message(strict_to_me, priority=20)
@@ -64,10 +72,11 @@ async def llm(
         ] + [
            {'role': 'user', 'content': prompt}
         ]
-        usage: int = Tokenization.call(user.model, messages=messages, api_key=config.api_key)\
-            .usage['input_tokens']
+        
+        
         if ceil(
-            usage/1000 * config.models[user.model].input_cost
+            (usage := await tokenize(user.model, messages))
+            /1000 * config.models[user.model].input_cost
             +
             config.models[user.model].output_cost
         ) > user.coins:
