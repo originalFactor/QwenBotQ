@@ -17,3 +17,6 @@
  along with QwenBotQ.  If not, see <https://www.gnu.org/licenses/>.
 -->
 
+# 设置系统提示词
+
+文档仍在更新中，敬请期待……

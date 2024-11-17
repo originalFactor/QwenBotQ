@@ -17,6 +17,6 @@
  along with QwenBotQ.  If not, see <https://www.gnu.org/licenses/>.
 -->
 
-# QQ娱乐机器人命令指南
+# 积分榜
 
-请查看侧边栏导航，每个功能都是一个单独的页面，被分类在四大模块中，功能名称即触发指令。
+文档仍在更新中，敬请期待……

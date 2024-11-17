@@ -59,8 +59,7 @@ class Config(BaseModel):
     mongo_db: str = 'aioBot'  # 数据库名
 
     # 大模型
-    base_url: str = 'https://dashscope.aliyuncs.com/compatible-mode/v1'  # OpenAI格式接口地址
-    api_key: str  # OpenAI format API Key
+    api_key: str  # 灵积API-Key
     system_prompt: str = 'You are a smart assistant.'  # 默认系统提示词
     models: Mapping[str, Model] = {  # 模型价格
         'qwen-max': Model(
@@ -95,7 +94,7 @@ class Config(BaseModel):
     set_prompt_cost: int = 1  # 设置提示词价格
 
     # 个人中心
-    daily_sign_max_coins: int = 5  # 每日签到最大获得积分数
+    daily_sign_max_coins: int = 50  # 每日签到最大获得积分数
     daily_sign_min_coins: int = 1  # 最小
     refresh_price: int = 1  # 换老婆价格
     fork_cost: int = 1  # 导入萝卜数据的价格
