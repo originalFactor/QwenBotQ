@@ -17,12 +17,13 @@
 
 'The config module of QwenBotQ.'
 
-from typing import Sequence, Mapping, Optional, Union
+from typing import Sequence, Mapping, Optional
 from pydantic import BaseModel
 from nonebot import get_driver
 
 
 class Model(BaseModel):
+    '模型'
     name: str = 'Unknown'
     input_cost: float = 0
     output_cost: float = 0
@@ -30,11 +31,13 @@ class Model(BaseModel):
     detail: str = ''
 
 class Focus(BaseModel):
+    '订阅'
     uid: str
     groups: Sequence[str] = []
     users: Sequence[str] = []
 
 class FocusOptions(BaseModel):
+    '订阅选项'
     sessdata: str
     subscribes: Sequence[Focus]
     interval: Mapping[str, int] = {
