@@ -42,7 +42,7 @@ async def tokenize(model: str, messages: Sequence[Mapping[str, str]])->int:
     if _ := Tokenization.call(model, messages=messages, api_key=config.api_key).usage:
         return _['input_tokens']
     else:
-        logger.warning(f'分词失败，正在忽略输入消耗……')
+        logger.warning('分词失败，正在忽略输入消耗……')
         return 0
 
 # 大模型回复匹配器

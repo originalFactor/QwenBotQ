@@ -21,7 +21,6 @@ from random import choice
 from typing import Mapping, Union
 from nonebot import on_command
 from nonebot.adapters.onebot.v11 import GroupMessageEvent, Bot, Message
-from nonebot.adapters.onebot.v11.event import Reply
 from .models import EssenceMessage
 
 
@@ -48,7 +47,7 @@ async def group_members(event: GroupMessageEvent, bot: Bot):
     )
 
 
-async def essence_formatter(essence: Mapping[str, Union[int, str]], bot: Bot)->Message:
+async def essence_formatter(essence: Mapping[str, Union[int, str]])->Message:
     '格式化精华消息'
     e = EssenceMessage.model_validate(essence)
     m = Message(e.content)
@@ -59,7 +58,7 @@ async def essence_formatter(essence: Mapping[str, Union[int, str]], bot: Bot)->M
     )
 
 
-RandomEssenceMatcher = on_command('精华', block=True)
+RandomEssenceMatcher = on_command('随机精华', block=True)
 
 @RandomEssenceMatcher.handle()
 async def random_essence(event: GroupMessageEvent, bot: Bot):
@@ -69,8 +68,7 @@ async def random_essence(event: GroupMessageEvent, bot: Bot):
         await essence_formatter(
             choice(
                 await bot.get_essence_msg_list(group_id=event.group_id)
-            ),
-            bot
+            )
         ),
         at_sender=True
     )
@@ -83,7 +81,7 @@ async def essences(event: GroupMessageEvent, bot: Bot):
     '读取群精华列表'
     msg: Message = '\n群精华列表：'
     for _ in await bot.get_essence_msg_list(group_id=event.group_id):
-        msg += '\n\n' + await essence_formatter(_, bot)
+        msg += '\n\n' + await essence_formatter(_)
     await EssenceMatcher.finish(
         msg,
         at_sender=True
