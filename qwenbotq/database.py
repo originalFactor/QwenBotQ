@@ -74,6 +74,7 @@ class User(Document):
     profile_expire: date = date.min
 
 class SubscribeStatus(Document):
+    '订阅状态'
     id: str
     last_update: str = ''
     living: bool = False

@@ -51,11 +51,9 @@ async def group_members(event: GroupMessageEvent, bot: Bot):
 async def essence_formatter(essence: Mapping[str, Union[int, str]], bot: Bot)->Message:
     '格式化精华消息'
     e = EssenceMessage.model_validate(essence)
-    msg = Reply.model_validate(await bot.get_msg(message_id=e.message_id))
+    m = Message(e.content)
     return (
-        f'{e.sender_nick} ({e.sender_id})\n'
-        f'{e.sender_time.strftime("%Y/%m/%d %H:%M:%S")}：\n\t'+
-        msg.message+
+        f'{e.sender_nick} ({e.sender_id})：\n'+m+
         f'\n由 {e.operator_nick} ({e.operator_id}) 于\n\t'
         f'{e.operator_time} 设置。'
     )
