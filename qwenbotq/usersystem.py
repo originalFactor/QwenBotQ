@@ -56,7 +56,10 @@ async def get_information(
         ) +
         f'权限等级：{user.permission}\n'
         f'使用模型：{user.model}\n'
-        f'\t系统提示词：{user.system_prompt}\n'
+        f'\t系统提示词：{(_:=user.system_prompt)[:min(len(_),10)]}\n'
+        f'\t温度：{user.temprature}\n'
+        f'\t频率惩罚：{user.frequency_penalty}\n'
+        f'\t重复惩罚：{user.presence_penalty}\n'
         '头像：' +
         MessageSegment.image(f'https://q1.qlogo.cn/g?b=qq&nk={user.id}&s=5') +
         '本日老公：' +
