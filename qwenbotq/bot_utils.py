@@ -19,7 +19,7 @@
 供主体使用的Bot实用函数
 '''
 
-from typing import Annotated, List, Optional, Sequence
+from typing import Annotated, List, Optional, Sequence, Union, Tuple
 from datetime import date
 
 from nonebot.adapters.onebot.v11 import Bot, MessageEvent, Message
@@ -75,15 +75,26 @@ async def arg_plain_text(args: Annotated[Message, CommandArg()]) -> str:
     return args.extract_plain_text().strip()
 
 
-def arg(tp: type, least: int = 0):
+def arg(tp: Union[type, Tuple[type]], least: int = 0):
     "获取至少least个tp类型的命令参数"
     @Depends
     async def _arg(
             matcher: Matcher,
-            args: Annotated[str, arg_plain_text]
-    ) -> List[tp]: # type: ignore
+            arg: Annotated[str, arg_plain_text]
+    ):
+        args = arg.strip().split()
+        if isinstance(tp, tuple):
+            if len(args)!=len(tp):
+                await matcher.finish(
+                    f'输入参数量不正确。',
+                    at_sender=True
+                )
+            return tuple([
+                t(args[i])
+                for i, t in enumerate(tp)
+            ])
         try:
-            if len(x := list(map(tp, args.strip().split()))) >= least:
+            if len(x := list(map(tp, args))) >= least:
                 return x
             await matcher.finish(
                 f'请输入至少{least}个{tp}类型参数！',
