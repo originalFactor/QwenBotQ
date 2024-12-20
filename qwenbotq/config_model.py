@@ -27,6 +27,7 @@ class Model(BaseModel):
     name: str = 'Unknown'
     input_cost: float = 0
     output_cost: float = 0
+    context_length: Optional[int] = None
     max_tokens: Optional[int] = None
     detail: str = ''
 
@@ -59,36 +60,16 @@ class Config(BaseModel):
     mongo_db: str = 'aioBot'  # 数据库名
 
     # 大模型
+    base_url: str = 'https://api.openai.com/v1'
     api_key: str  # 灵积API-Key
     system_prompt: str = 'You are a smart assistant.'  # 默认系统提示词
     models: Mapping[str, Model] = {  # 模型价格
-        'qwen-max': Model(
-            name='通义千问-Max',
-            input_cost=2, 
-            output_cost=6, 
-            max_tokens=30720,
-            detail='通义千问系列效果最好的模型，适合复杂、多步骤的任务。'
-        ),
-        'qwen-plus': Model(
-            name='通义千问-Plus',
-            input_cost=0.08, 
-            output_cost=0.02, 
-            max_tokens=129024,
-            detail='能力均衡，推理效果、成本和速度介于通义千问-Max和通义千问-Turbo之间，适合中等复杂任务。'
-        ),
-        'qwen-turbo': Model(
-            name='通义千问-Turbo',
-            input_cost=0.03, 
-            output_cost=0.06, 
-            max_tokens=129024,
-            detail='通义千问系列速度最快、成本很低的模型，适合简单任务。'
-        ),
-        'qwen-long': Model(
-            name='通义千问-Long',
-            input_cost=0.05,
-            output_cost=0.2,
-            max_tokens=10000000,
-            detail='支持总结和分析长达千万字的文档，且成本极低。'
+        'gpt-4o-mini': Model(
+            name='GPT-4o-mini',
+            input_cost=0.11, 
+            output_cost=0.44, 
+            max_tokens=16384,
+            detail='OpenAI 最具性价比的模型'
         )
     }
     set_prompt_cost: int = 1  # 设置提示词价格

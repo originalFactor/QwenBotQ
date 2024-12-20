@@ -67,6 +67,9 @@ class User(Document):
     nick: str = 'Unknown'
     permission: int = 0
     system_prompt: str = config.system_prompt
+    temprature: float = 1.0
+    frequency_penalty: float = 1.0
+    presence_penalty: float = 1.0
     coins: int = 0
     sign_expire: date = date.min
     model: str = list(config.models.keys())[0]
@@ -76,15 +79,15 @@ class User(Document):
 class SubscribeStatus(Document):
     '订阅状态'
     id: str
-    last_update: str = ''
+    last_update: int = 0
     living: bool = False
 
 
 async def apply_bind(a: User, b: User) -> date:
     '应用一个绑定'
     expire = date.today()+timedelta(1)
-    a.binded = Binded(id=b.id, expire=expire)
-    b.binded = Binded(id=a.id, expire=expire)
+    a.set({'binded': Binded(id=b.id, expire=expire)})
+    b.set({'binded': Binded(id=a.id, expire=expire)})
     return expire
 
 
