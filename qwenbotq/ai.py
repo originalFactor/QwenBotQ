@@ -17,14 +17,13 @@
 
 'AI助手模块'
 
-from http import HTTPStatus
 from math import ceil
-from typing import Annotated, Mapping, Optional, Sequence
+from typing import Annotated, Mapping, Optional, Sequence, Tuple
 from urllib.error import HTTPError
-from dashscope import AioGeneration, Tokenization
-from dashscope.api_entities.dashscope_response import GenerationResponse
+from openai import AsyncOpenAI
+from openai.types.chat.chat_completion import ChatCompletion
+from tiktoken import encoding_for_model, get_encoding
 from nonebot import on_message, on_command
-from nonebot.log import logger
 from nonebot.params import EventPlainText
 from nonebot.adapters.onebot.v11 import Bot
 from nonebot.adapters.onebot.v11.event import Reply
@@ -34,16 +33,21 @@ from .bot_utils import (
     require,
     get_flow_replies,
     strict_to_me,
-    arg_plain_text
+    arg_plain_text,
+    arg
 )
 
+openai = AsyncOpenAI(
+    api_key=config.api_key,
+    base_url=config.base_url
+)
 
 async def tokenize(model: str, messages: Sequence[Mapping[str, str]])->int:
-    if _ := Tokenization.call(model, messages=messages, api_key=config.api_key).usage:
-        return _['input_tokens']
-    else:
-        logger.warning('分词失败，正在忽略输入消耗……')
-        return 0
+    try:
+        encoding = encoding_for_model(model)
+    except KeyError:
+        encoding = get_encoding('cl100k_base')
+    return sum(len(encoding.encode(_['content']))+4 for _ in messages)
 
 # 大模型回复匹配器
 LLMMatcher = on_message(strict_to_me, priority=20)
@@ -84,42 +88,40 @@ async def llm(
                 f'\n输入上下文大小 {usage} tokens 已超过积分余额所能负担的最大值。',
                 at_sender=True
             )
-        if config.models[user.model].max_tokens is not None:
-            if usage > config.models[user.model].max_tokens:
+        if config.models[user.model].context_length is not None:
+            if usage > config.models[user.model].context_length:
                 await LLMMatcher.finish(
                     '\n上下文长度超过模型能够处理的最长长度',
                     at_sender=True
                 )
         try:
-            response: GenerationResponse = await AioGeneration.call(
-                user.model,
-                api_key=config.api_key,
+            response: ChatCompletion = await openai.chat.completions.create(
+                model=user.model,
                 messages=messages,
-                result_format='message',
-                enable_search=True
+                max_tokens=config.models[user.model].max_tokens,
+                temperature=user.temprature,
+                frequency_penalty=user.frequency_penalty,
+                presence_penalty=user.presence_penalty
             )
         except HTTPError as e:
             await LLMMatcher.finish(
                 f"\n错误：{e}",
                 at_sender=True
             )
-        if response.status_code == HTTPStatus.OK:
+        if response.usage:
             usage = ceil(
-                response.usage.input_tokens/1000*config.models[user.model].input_cost
+                response.usage.prompt_tokens/1000*config.models[user.model].input_cost
                 +
-                response.usage.output_tokens/1000*config.models[user.model].output_cost
+                response.usage.completion_tokens/1000*config.models[user.model].output_cost
             )
             await user.inc({User.coins: -usage})
             await LLMMatcher.finish(
-                response.output.choices[0].message.content+'\n'
+                response.choices[0].message.content+'\n'
                 f'-( 本次共消耗{usage}积分 )-',
                 reply_message=True
             )
         await LLMMatcher.finish(
-            f'\n服务器返回异常状态码 {response.status_code}，详情：\n'
-            f'请求ID: {response.request_id}\n'
-            f'错误代码：{response.code}\n'
-            f'错误详情：{response.message}',
+            '\n服务器返回无效：'+response.model_dump_json(),
             at_sender=True
         )
     await LLMMatcher.finish(
@@ -158,7 +160,8 @@ async def model_change(
                 f'名称: {_[1].name}\n'
                 f'输入消耗倍率：{_[1].input_cost}\n'
                 f'输出消耗倍率：{_[1].output_cost}\n'
-                f'最长输入长度：{_[1].max_tokens} token\n'
+                f'最大上下文长度：{_[1].context_length}\n'
+                f'最长输出长度：{_[1].max_tokens} token\n'
                 f'简介：{_[1].detail}'
                 for _ in config.models.items()
             ]))+
@@ -168,5 +171,30 @@ async def model_change(
     await user.set({User.model: args})
     await ModelChangeMatcher.finish(
         '\n成功为您更换模型。',
+        at_sender=True
+    )
+
+# 设置模型参数
+ConfMatcher = on_command('设置参数', block=True)
+@ConfMatcher.handle()
+async def conf(
+    user: Annotated[User, require()],
+    args: Annotated[Tuple[str, float], arg((str, float))]
+):
+    key, val = args
+    if key=='温度':
+        key = 'temprature'
+    elif key=='频率惩罚':
+        key = 'frequency_penalty'
+    elif key=='重复惩罚':
+        key = 'presence_penalty'
+    else:
+        await ConfMatcher.finish(
+            '请输入合法的参数名',
+            at_sender=True
+        )
+    await user.set({key: val})
+    await ConfMatcher.finish(
+        '已尝试设定',
         at_sender=True
     )
