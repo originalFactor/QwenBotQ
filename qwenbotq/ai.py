@@ -42,7 +42,8 @@ openai = AsyncOpenAI(
     base_url=config.base_url
 )
 
-async def tokenize(model: str, messages: Sequence[Mapping[str, str]])->int:
+
+async def tokenize(model: str, messages: Sequence[Mapping[str, str]]) -> int:
     try:
         encoding = encoding_for_model(model)
     except KeyError:
@@ -51,6 +52,7 @@ async def tokenize(model: str, messages: Sequence[Mapping[str, str]])->int:
 
 # 大模型回复匹配器
 LLMMatcher = on_message(strict_to_me, priority=20)
+
 
 @LLMMatcher.handle()
 async def llm(
@@ -68,19 +70,23 @@ async def llm(
         )
     if prompt:
         messages = [
-           {'role': 'system', 'content': user.system_prompt}
+            {'role': 'system', 'content': user.system_prompt}
         ] + [
-           {'role': ('assistant' if _.sender == bot.self_id else 'user'),
-            'content': _.message.extract_plain_text()}
-           for _ in (replies if replies else [])
+            {
+                'role': (role := ('assistant' if _.sender == bot.self_id else 'user')),
+                'content': (
+                    lambda msg:
+                    msg.rsplit('\n', 1)[0] if role == 'assistant' else msg
+                )(_.message.extract_plain_text())
+            }
+            for _ in (replies if replies else [])
         ] + [
-           {'role': 'user', 'content': prompt}
+            {'role': 'user', 'content': prompt}
         ]
-        
-        
+
         if ceil(
             (usage := await tokenize(user.model, messages))
-            /1000 * config.models[user.model].input_cost
+            / 1000 * config.models[user.model].input_cost
             +
             config.models[user.model].output_cost
         ) > user.coins:
@@ -110,9 +116,11 @@ async def llm(
             )
         if response.usage:
             usage = ceil(
-                response.usage.prompt_tokens/1000*config.models[user.model].input_cost
+                response.usage.prompt_tokens/1000 *
+                config.models[user.model].input_cost
                 +
-                response.usage.completion_tokens/1000*config.models[user.model].output_cost
+                response.usage.completion_tokens/1000 *
+                config.models[user.model].output_cost
             )
             await user.inc({User.coins: -usage})
             await LLMMatcher.finish(
@@ -132,6 +140,7 @@ async def llm(
 # 设置系统提示词匹配器
 PromptMatcher = on_command('设置系统提示词', block=True)
 
+
 @PromptMatcher.handle()
 async def set_prompt(
     user: Annotated[User, require(0, config.set_prompt_cost)],
@@ -146,6 +155,8 @@ async def set_prompt(
 
 # 更换模型匹配器
 ModelChangeMatcher = on_command('更改模型', block=True)
+
+
 @ModelChangeMatcher.handle()
 async def model_change(
     user: Annotated[User, require()],
@@ -154,7 +165,7 @@ async def model_change(
     '更改模型'
     if not args or args not in config.models:
         await ModelChangeMatcher.finish(
-            '\n请指定一个正确的目标模型。\n支持的模型：\n\n'+
+            '\n请指定一个正确的目标模型。\n支持的模型：\n\n' +
             ('\n\n'.join([
                 f'ID: {_[0]}\n'
                 f'名称: {_[1].name}\n'
@@ -164,7 +175,7 @@ async def model_change(
                 f'最长输出长度：{_[1].max_tokens} token\n'
                 f'简介：{_[1].detail}'
                 for _ in config.models.items()
-            ]))+
+            ])) +
             '\n\n注：消耗计算方式：接口给出的消耗Token数/1000*倍率，消耗积分。',
             at_sender=True
         )
@@ -176,17 +187,19 @@ async def model_change(
 
 # 设置模型参数
 ConfMatcher = on_command('设置参数', block=True)
+
+
 @ConfMatcher.handle()
 async def conf(
     user: Annotated[User, require()],
     args: Annotated[Tuple[str, float], arg((str, float))]
 ):
     key, val = args
-    if key=='温度':
+    if key == '温度':
         key = 'temprature'
-    elif key=='频率惩罚':
+    elif key == '频率惩罚':
         key = 'frequency_penalty'
-    elif key=='重复惩罚':
+    elif key == '重复惩罚':
         key = 'presence_penalty'
     else:
         await ConfMatcher.finish(

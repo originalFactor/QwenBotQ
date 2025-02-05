@@ -34,25 +34,23 @@ from . import config
 
 class Mongo:
     'nonebot_plugin_mongodb 修复内嵌版'
-    _client: AsyncIOMotorClient = None
+    _client: Optional[AsyncIOMotorClient] = None
 
     @classmethod
     def client(cls) -> AsyncIOMotorClient:
         "MongoDB 客户端"
-        if cls._client:
-            return cls._client
-        try:
-            logger.info("正在初始化MongoDB客户端...")
-            cls._client = AsyncIOMotorClient(config.mongo_uri)
-        except Exception as e:
-            raise RuntimeError("MongoDB客户端初始化失败") from e
-        # if cls._client.get(plugin_config.mongo_database_name)
+        if not cls._client:
+            try:
+                logger.info("正在初始化MongoDB客户端...")
+                cls._client = AsyncIOMotorClient(config.mongo_uri)
+            except Exception as e:
+                raise RuntimeError("MongoDB客户端初始化失败") from e
+        return cls._client
 
     @classmethod
     async def register_models(cls, document_models: Sequence[Document]):
         '注册模型'
-        cls.client()
-        database = getattr(cls._client, config.mongo_db)
+        database = getattr(cls.client(), config.mongo_db)
         await init_beanie(database, document_models=document_models)
 
 
@@ -60,6 +58,7 @@ class Binded(BaseModel):
     '绑定用户'
     id: str
     expire: date
+
 
 class User(Document):
     '用户文档'
@@ -76,6 +75,7 @@ class User(Document):
     binded: Optional[Binded] = None
     profile_expire: date = date.min
 
+
 class SubscribeStatus(Document):
     '订阅状态'
     id: str
@@ -86,12 +86,14 @@ class SubscribeStatus(Document):
 async def apply_bind(a: User, b: User) -> date:
     '应用一个绑定'
     expire = date.today()+timedelta(1)
-    a.set({'binded': Binded(id=b.id, expire=expire)})
-    b.set({'binded': Binded(id=a.id, expire=expire)})
+    await a.set({'binded': Binded(id=b.id, expire=expire)})
+    await b.set({'binded': Binded(id=a.id, expire=expire)})
     return expire
 
+driver = get_driver()
 
-@get_driver().on_startup
+
+@driver.on_startup
 async def initialize_database():
     '初始化数据库'
 
@@ -105,10 +107,7 @@ async def initialize_database():
     document_names: Dict[str, str] = {}
     for cls in document_models:
         cls_path = f"{cls.__module__}.{cls.__name__}"
-        try:
-            cls_name = cls.Settings.name.lower()
-        except AttributeError:
-            cls_name = cls.__name__.lower()
+        cls_name = cls.__name__.lower()
         if cls_name in document_names:
             clashed_cls_path = document_names[cls_name]
             raise RuntimeError(
@@ -128,7 +127,6 @@ async def initialize_database():
     )
 
     await Mongo.register_models(document_models)
-
 
     # 初始化管理员
     for superuser in config.supermgr_ids:
