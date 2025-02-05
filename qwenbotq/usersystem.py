@@ -36,6 +36,7 @@ from .database import User
 
 GetInformationMatcher = on_command('用户信息', block=True)
 
+
 @GetInformationMatcher.handle()
 async def get_information(
     user: Annotated[User, require()],
@@ -51,12 +52,15 @@ async def get_information(
         f'积分：{user.coins}\n\t' +
         (
             f"已签到\n\t失效日期：{user.sign_expire.strftime('%Y/%m/%d')}\n"
-            if user.sign_expire>date.today() else
+            if user.sign_expire > date.today() else
             "未签到\n"
         ) +
         f'权限等级：{user.permission}\n'
         f'使用模型：{user.model}\n'
-        f'\t系统提示词：{user.system_prompt}\n'
+        f'\t系统提示词：{(_ := user.system_prompt)[:min(len(_), 10)]}...\n'
+        f'\t温度：{user.temprature}\n'
+        f'\t频率惩罚：{user.frequency_penalty}\n'
+        f'\t重复惩罚：{user.presence_penalty}\n'
         '头像：' +
         MessageSegment.image(f'https://q1.qlogo.cn/g?b=qq&nk={user.id}&s=5') +
         '本日老公：' +
@@ -71,6 +75,7 @@ async def get_information(
 
 
 GrantMatcher = on_command('授予权限', block=True)
+
 
 @GrantMatcher.handle()
 async def grant_permission(
@@ -87,6 +92,7 @@ async def grant_permission(
 
 
 SignMatcher = on_command('签到', block=True)
+
 
 @SignMatcher.handle()
 async def sign(user: Annotated[User, require()]):
@@ -115,6 +121,7 @@ async def sign(user: Annotated[User, require()]):
 
 RankMatcher = on_command('积分榜', block=True)
 
+
 @RankMatcher.handle()
 async def rank():
     '积分排行榜'
@@ -124,7 +131,8 @@ async def rank():
         (
             '\n'.join(
                 [
-                    f'[{x+1}] {users[x].nick} ({users[x].id}) : {users[x].coins}'
+                    f'[{x +
+                        1}] {users[x].nick} ({users[x].id}) : {users[x].coins}'
                     for x in range(len(users))
                 ]
             )
@@ -134,6 +142,7 @@ async def rank():
 
 
 ChargeMatcher = on_command('印钞机', block=True)
+
 
 @ChargeMatcher.handle()
 async def charge(
@@ -149,6 +158,7 @@ async def charge(
 
 
 TransferMatcher = on_command('转账给', block=True)
+
 
 @TransferMatcher.handle()
 async def transfer(

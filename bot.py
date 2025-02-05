@@ -17,7 +17,7 @@
 
 '机器人启动文件'
 
-from sys import stdout
+from sys import stdout, platform
 from os import environ
 import asyncio
 import nonebot
@@ -25,7 +25,8 @@ from nonebot.adapters.onebot.v11 import Adapter as OnebotV11Adapter
 from nonebot.log import logger_id, default_filter
 
 # 修复 AIODNS 错误
-asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+if platform=='win32':
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 # 作为服务运行时不重复输出时间
 if environ.get('RUNNING_AS_SERVICE', 'no') == 'yes':

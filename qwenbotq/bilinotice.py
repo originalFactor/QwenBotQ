@@ -137,7 +137,7 @@ async def check_and_push(session: ClientSession):
                 last_update = data['items'][0]['id_str']
             offset = data['offset']
             for item in data['items']:
-                if item['id_str'] == status.last_update:
+                if int(item['id_str']) <= status.last_update:
                     has_more = False
                     break
                 if _ := await parse_item(item):
@@ -148,7 +148,8 @@ async def check_and_push(session: ClientSession):
                         focus.groups
                     )
             await sleep(3)
-        await status.set({SubscribeStatus.last_update: last_update})
+        if last_update:
+            await status.set({SubscribeStatus.last_update: int(last_update)})
         logger.info(f'动态检查完毕，最后一条动态的id：{last_update}')
         logger.info('开始检查直播')
         if response := await api_request(

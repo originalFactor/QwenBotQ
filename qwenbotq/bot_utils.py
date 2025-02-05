@@ -19,7 +19,8 @@
 供主体使用的Bot实用函数
 '''
 
-from typing import Annotated, List, Optional, Sequence
+from typing import Annotated, List, Optional, Union, Tuple, Any
+from collections.abc import Sequence
 from datetime import date
 
 from nonebot.adapters.onebot.v11 import Bot, MessageEvent, Message
@@ -43,10 +44,10 @@ async def get_user(_id: str, nick: Optional[str], bot: Bot):
         user.nick = nick
     return user
 
-def require(cost_permission: int = 0, cost_coins: int = 0, only_check: bool = False):
+
+def require(cost_permission: int = 0, cost_coins: int = 0, only_check: bool = False) -> User:
     "用于获取发送用户的权限函数，可指定最小权限等级以及消耗积分数量"
-    @Depends
-    async def _require(event: MessageEvent, matcher: Matcher, bot: Bot) -> User:
+    async def _require(event: MessageEvent, matcher: Matcher, bot: Bot):
         user = await get_user(event.get_user_id(), event.sender.nickname, bot)
         if user.permission < cost_permission:
             await matcher.finish(
@@ -66,24 +67,35 @@ def require(cost_permission: int = 0, cost_coins: int = 0, only_check: bool = Fa
                     at_sender=True
                 )
         return user
-    return _require
+    return Depends(_require, validate=True)
 
 
-@Depends
-async def arg_plain_text(args: Annotated[Message, CommandArg()]) -> str:
+async def _arg_plain_text(args: Annotated[Message, CommandArg()]) -> str:
     '获取命令纯文本参数'
     return args.extract_plain_text().strip()
+arg_plain_text = Depends(_arg_plain_text, validate=True)
 
 
-def arg(tp: type, least: int = 0):
+def arg(tp: Union[type, Sequence[type]], least: int = 0) -> Union[List[Any], Tuple[Any, ...]]:
     "获取至少least个tp类型的命令参数"
-    @Depends
     async def _arg(
-            matcher: Matcher,
-            args: Annotated[str, arg_plain_text]
-    ) -> List[tp]: # type: ignore
+        matcher: Matcher,
+        arg: Annotated[str, arg_plain_text]
+    ):
+        if isinstance(tp, Sequence):
+            args = arg.strip().split(maxsplit=len(tp))
+            try:
+                return tuple([
+                    tp[i](v)
+                    for i, v in enumerate(args)
+                ])
+            except ValueError:
+                await matcher.finish(
+                    f'输入参数类型不正确。',
+                    at_sender=True
+                )
         try:
-            if len(x := list(map(tp, args.strip().split()))) >= least:
+            if len(x := list(map(tp, args))) >= least:
                 return x
             await matcher.finish(
                 f'请输入至少{least}个{tp}类型参数！',
@@ -94,20 +106,19 @@ def arg(tp: type, least: int = 0):
                 f'\n请输入合法的{tp}类型参数！',
                 at_sender=True
             )
-    return _arg
+    return Depends(_arg, validate=True)
 
 
-def mentioned(least: int = 0):
+def mentioned(least: int = 0) -> List[User]:
     "获取至少least个被提及的用户"
-    @Depends
     async def _mentioned(
         matcher: Matcher,
         bot: Bot,
         msg: Annotated[Message, EventMessage()],
         args: Annotated[Sequence[str], arg(str)]
-    ) -> List[User]:
+    ):
         mentioned_users = (
-            [await get_user(_.data['qq'], _.data['name'], bot) for _ in msg['at']]+
+            [await get_user(_.data['qq'], _.data['name'], bot) for _ in msg['at']] +
             [await get_user(_[1:], None, bot) for _ in args if _.startswith('@')]
         )
         if len(mentioned_users) >= least:
@@ -116,22 +127,21 @@ def mentioned(least: int = 0):
             f'\n该功能至少要提及{least}个用户。',
             at_sender=True
         )
-    return _mentioned
+    return Depends(_mentioned, validate=True)
 
 
-def reply(required: bool = False):
+def reply(required: bool = False) -> Optional[Reply]:
     "获取单条回复信息"
-    @Depends
     async def _reply(
             matcher: Matcher,
-            event: MessageEvent) -> Optional[Reply]:
+            event: MessageEvent):
         if required and not event.reply:
             await matcher.finish(
                 "\n必须回复一条消息才能使用此功能",
                 at_sender=True
             )
         return event.reply
-    return _reply
+    return Depends(_reply, validate=True)
 
 
 @Rule
@@ -144,11 +154,11 @@ async def strict_to_me(event: MessageEvent) -> bool:
             return True
     return False
 
-@Depends
-async def get_flow_replies(
+
+async def _get_flow_replies(
     replied: Annotated[Optional[Reply], reply()],
     bot: Bot
-    ) -> Optional[List[Reply]]:
+) -> Optional[List[Reply]]:
     '获取回复链'
     if not replied:
         return None
@@ -157,8 +167,10 @@ async def get_flow_replies(
         replies.append(
             Reply.model_validate(
                 await bot.get_msg(
-                    message_id=replies[-1].message['reply',0].data['id']
+                    message_id=replies[-1].message['reply', 0].data['id']
                 )
             )
         )
     return list(reversed(replies))
+
+get_flow_replies = Depends(_get_flow_replies, validate=True)
