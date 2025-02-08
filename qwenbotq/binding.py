@@ -35,6 +35,7 @@ from .bot_utils import (
 
 BindMatcher = on_command('官宣', block=True)
 
+
 @BindMatcher.handle()
 async def bind(
     mention: Annotated[Sequence[User], mentioned(2)],
@@ -54,6 +55,7 @@ async def bind(
 
 
 WifeMatcher = on_fullmatch('今日老公', block=True)
+
 
 @WifeMatcher.handle()
 async def wife(
@@ -81,6 +83,7 @@ async def wife(
 
 RefreshMatcher = on_command('换老公', block=True)
 
+
 @RefreshMatcher.handle()
 async def refresh(
     user: Annotated[User, require(0, config.refresh_price)]
@@ -96,11 +99,12 @@ async def refresh(
 
 ForkMatcher = on_command('恢复记录', block=True)
 
+
 @ForkMatcher.handle()
 async def fork(
-    bot: Bot,
-    _: Annotated[User, require(0, config.fork_cost)],
-    replied: Annotated[Reply, reply(True)]):
+        bot: Bot,
+        _: Annotated[User, require(0, config.fork_cost)],
+        replied: Annotated[Reply, reply(True)]):
     '应用老搭'
     if str(replied.sender.user_id) not in config.trusted_wife_source:
         await ForkMatcher.finish(
@@ -110,8 +114,8 @@ async def fork(
     first = replied.message['at', 0].data
     user = await get_user(first['qq'], first['name'], bot)
     plain = replied.message.extract_plain_text()
-    nick = plain.split(':',1)[1].split('(',1)[0]
-    _id = plain.split('(',1)[1].split(')',1)[0]
+    nick = plain.split(':', 1)[1].split('(', 1)[0]
+    _id = plain.split('(', 1)[1].split(')', 1)[0]
     user_wife = await get_user(_id, nick, bot)
     expire = await apply_bind(user, user_wife)
     await ForkMatcher.finish(
@@ -139,9 +143,9 @@ async def renew(
         await user.inc({User.binded.expire: timedelta(1)})
         await RenewMatcher.finish(
             '\n已成功续期您和\n'
-            f"{user.nick} ({user.id})\n"
+            f"{w.nick} ({w.id})\n"
             '的关系至\n'
-            f'{user.binded.expire.strftime("%Y/%m/%d %H:%M:%S")}',
+            f'{user.binded.expire.strftime("%Y/%m/%d")}',
             at_sender=True
         )
     await RenewMatcher.finish(

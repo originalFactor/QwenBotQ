@@ -47,5 +47,5 @@
 和
 {b.nick} ({b.id})
 为本日CP！
-有效期至：YYYY/MM/DD HH:MM:SS
+有效期至：YYYY/MM/DD
 ```
