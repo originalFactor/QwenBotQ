@@ -17,7 +17,7 @@
 
 '绑定相关'
 
-from random import choice
+from random import choice, random
 from datetime import date, timedelta
 from typing import Annotated, Sequence
 from nonebot import on_command, on_fullmatch
@@ -68,8 +68,18 @@ async def wife(
         cp_user = await get_user(user.binded.id, None, bot)
         expire = user.binded.expire
     else:
-        x = choice(await bot.get_group_member_list(group_id=event.group_id))
-        cp_user = await get_user(str(x['user_id']), x['nickname'], bot)
+        members = await bot.get_group_member_list(group_id=event.group_id)
+        while True:
+            x = choice(members)
+            cp_user = await get_user(str(x['user_id']), x['nickname'], bot)
+            power = random()*2
+            if (cp_user.id == user.id) or\
+                    (cp_user.binded and cp_user.binded.expire > date.today()) or\
+                    (cp_user.bind_power > power):
+                members.remove(x)
+                power += 0.2
+                continue
+            break
         expire = await apply_bind(user, cp_user)
     await WifeMatcher.finish(
         '\n你今天的老公是：' +
@@ -89,7 +99,7 @@ async def refresh(
     user: Annotated[User, require(0, config.refresh_price)]
 ):
     '解除绑定'
-    await user.set({User.binded: None})
+    await user.set({'binded': None})
 
     await RefreshMatcher.finish(
         '\n已解除绑定！',
@@ -139,8 +149,9 @@ async def renew(
     '续期关系'
     if user.binded:
         w = await get_user(user.binded.id, None, bot)
-        await w.inc({User.binded.expire: timedelta(1)})
-        await user.inc({User.binded.expire: timedelta(1)})
+        new_exp = user.binded.expire + timedelta(1)
+        await w.set({'binded.expire': new_exp})
+        await user.set({'binded.expire': new_exp})
         await RenewMatcher.finish(
             '\n已成功续期您和\n'
             f"{w.nick} ({w.id})\n"

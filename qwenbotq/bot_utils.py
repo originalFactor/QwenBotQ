@@ -19,6 +19,7 @@
 供主体使用的Bot实用函数
 '''
 
+from random import random
 from typing import Annotated, List, Optional, Union, Tuple, Any
 from collections.abc import Sequence
 from datetime import date
@@ -40,6 +41,8 @@ async def get_user(_id: str, nick: Optional[str], bot: Bot):
         await user.insert()
     if user.profile_expire <= date.today():
         await user.set({User.nick: (await bot.get_stranger_info(user_id=int(_id)))['nickname']})
+    if user.bind_power == 0:
+        await user.set({'bind_power': random()*2})
     if nick:
         user.nick = nick
     return user
@@ -95,7 +98,7 @@ def arg(tp: Union[type, Sequence[type]], least: int = 0) -> Union[List[Any], Tup
                     at_sender=True
                 )
         try:
-            if len(x := list(map(tp, args))) >= least:
+            if len(x := list(map(tp, arg.strip().split()))) >= least:
                 return x
             await matcher.finish(
                 f'请输入至少{least}个{tp}类型参数！',
@@ -118,7 +121,7 @@ def mentioned(least: int = 0) -> List[User]:
         args: Annotated[Sequence[str], arg(str)]
     ):
         mentioned_users = (
-            [await get_user(_.data['qq'], _.data['name'], bot) for _ in msg['at']] +
+            [await get_user(_.data['qq'], _.data.get('name'), bot) for _ in msg['at']] +
             [await get_user(_[1:], None, bot) for _ in args if _.startswith('@')]
         )
         if len(mentioned_users) >= least:
@@ -174,3 +177,6 @@ async def _get_flow_replies(
     return list(reversed(replies))
 
 get_flow_replies = Depends(_get_flow_replies, validate=True)
+
+def strOpt(i: str | None) -> str:
+    return i if i else ''

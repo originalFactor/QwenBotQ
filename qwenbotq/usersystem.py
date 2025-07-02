@@ -49,6 +49,7 @@ async def get_information(
     await GetInformationMatcher.finish(
         f'\n{user.id}的用户信息：\n'
         f'昵称：{user.nick}\n'
+        f'稀有度：{round(user.bind_power, 2)}\n'
         f'积分：{user.coins}\n\t' +
         (
             f"已签到\n\t失效日期：{user.sign_expire.strftime('%Y/%m/%d')}\n"
@@ -67,7 +68,7 @@ async def get_information(
         (
             f'{cp.nick} ({cp.id})\n'
             f'\t失效日期：{user.binded.expire.strftime("%Y/%m/%d")}'
-            if user.binded else
+            if cp and user.binded and user.binded.expire > date.today() else
             '未绑定'
         ),
         at_sender=True
@@ -125,14 +126,13 @@ RankMatcher = on_command('积分榜', block=True)
 @RankMatcher.handle()
 async def rank():
     '积分排行榜'
-    users = [_ async for _ in User.find().sort(('coins', -1)).limit(10)]
+    users = [_ async for _ in User.find().sort(('coins', -1)).limit(10)] # type: ignore
     await RankMatcher.finish(
         '\n积分排行榜：\n' +
         (
             '\n'.join(
                 [
-                    f'[{x +
-                        1}] {users[x].nick} ({users[x].id}) : {users[x].coins}'
+                    f'[{x+1}] {users[x].nick} ({users[x].id}) : {users[x].coins}'
                     for x in range(len(users))
                 ]
             )

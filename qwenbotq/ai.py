@@ -32,6 +32,7 @@ from .database import User
 from .bot_utils import (
     require,
     get_flow_replies,
+    strOpt,
     strict_to_me,
     arg_plain_text,
     arg
@@ -71,18 +72,19 @@ async def llm(
     if prompt:
         messages = [
             {'role': 'system', 'content': user.system_prompt}
-        ] + [
-            {
-                'role': (role := ('assistant' if _.sender == bot.self_id else 'user')),
-                'content': (
-                    lambda msg:
-                    msg.rsplit('\n', 1)[0] if role == 'assistant' else msg
-                )(_.message.extract_plain_text())
-            }
-            for _ in (replies if replies else [])
-        ] + [
-            {'role': 'user', 'content': prompt}
-        ]
+        ] 
+        if replies:
+            last_role: str | None = None
+            for r in replies:
+                content = r.message.extract_plain_text().rsplit('-(', 1)[0].strip()
+                if not content: continue
+                role = 'assistant' if r.sender.user_id == int(bot.self_id) else 'user'
+                if last_role == role:
+                    messages[-1]['content'] += '\n'+content
+                    continue
+                messages.append({'role': role, 'content': content})
+                last_role = role
+        messages.append({'role': 'user', 'content': prompt})
 
         if ceil(
             (usage := await tokenize(user.model, messages))
@@ -94,8 +96,8 @@ async def llm(
                 f'\n输入上下文大小 {usage} tokens 已超过积分余额所能负担的最大值。',
                 at_sender=True
             )
-        if config.models[user.model].context_length is not None:
-            if usage > config.models[user.model].context_length:
+        if _ := config.models[user.model].context_length:
+            if usage > _:
                 await LLMMatcher.finish(
                     '\n上下文长度超过模型能够处理的最长长度',
                     at_sender=True
@@ -103,7 +105,7 @@ async def llm(
         try:
             response: ChatCompletion = await openai.chat.completions.create(
                 model=user.model,
-                messages=messages,
+                messages=messages, # type: ignore
                 max_tokens=config.models[user.model].max_tokens,
                 temperature=user.temprature,
                 frequency_penalty=user.frequency_penalty,
@@ -124,7 +126,7 @@ async def llm(
             )
             await user.inc({User.coins: -usage})
             await LLMMatcher.finish(
-                response.choices[0].message.content+'\n'
+                strOpt(response.choices[0].message.content)+'\n'
                 f'-( 本次共消耗{usage}积分 )-',
                 reply_message=True
             )

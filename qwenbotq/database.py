@@ -18,14 +18,15 @@
 '数据库模块'
 
 # standard import
-from typing import Optional, Sequence, Dict
+from random import random
+from typing import Optional, Sequence, Dict, Type
 from datetime import date, timedelta
 
 # third-party import
 from nonebot import get_driver
 from nonebot.log import logger
 from beanie import Document, Indexed, init_beanie
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from motor.motor_asyncio import AsyncIOMotorClient
 
 # local import
@@ -48,7 +49,7 @@ class Mongo:
         return cls._client
 
     @classmethod
-    async def register_models(cls, document_models: Sequence[Document]):
+    async def register_models(cls, document_models: Sequence[Type[Document]]):
         '注册模型'
         database = getattr(cls.client(), config.mongo_db)
         await init_beanie(database, document_models=document_models)
@@ -74,11 +75,13 @@ class User(Document):
     model: str = list(config.models.keys())[0]
     binded: Optional[Binded] = None
     profile_expire: date = date.min
+    bind_power: float = 0
+
 
 
 class SubscribeStatus(Document):
     '订阅状态'
-    id: str
+    id: Indexed(str) # type: ignore
     last_update: int = 0
     living: bool = False
 
