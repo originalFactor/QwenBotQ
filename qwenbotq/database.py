@@ -20,7 +20,7 @@
 # standard import
 from random import random
 from typing import Optional, Sequence, Dict, Type
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 # third-party import
 from nonebot import get_driver
@@ -60,6 +60,12 @@ class Binded(BaseModel):
     id: str
     expire: date
 
+    @field_validator('expire', mode='before')
+    @classmethod
+    def expire_to_date(cls, v: datetime | date) -> date:
+        'datetime转化为date'
+        return v.date() if isinstance(v, datetime) else v
+
 
 class User(Document):
     '用户文档'
@@ -77,6 +83,11 @@ class User(Document):
     profile_expire: date = date.min
     bind_power: float = 0
 
+    @field_validator('sign_expire', 'profile_expire',  mode='before')
+    @classmethod
+    def expire_to_date(cls, v: datetime | date) -> date:
+        'datetime转化为date'
+        return v.date() if isinstance(v, datetime) else v
 
 
 class SubscribeStatus(Document):
