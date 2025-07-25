@@ -19,6 +19,7 @@
 供主体使用的Bot实用函数
 '''
 
+import asyncio
 from random import random
 from typing import Annotated, List, Optional, Union, Tuple, Any
 from collections.abc import Sequence
@@ -69,6 +70,7 @@ def require(cost_permission: int = 0, cost_coins: int = 0, only_check: bool = Fa
                     f"\n您已被扣除所需的{cost_coins}点积分！",
                     at_sender=True
                 )
+                await asyncio.sleep(0.5)
         return user
     return Depends(_require, validate=True)
 

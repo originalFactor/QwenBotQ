@@ -68,7 +68,8 @@ class Config(BaseModel):
             name='GPT-4o-mini',
             input_cost=0.11, 
             output_cost=0.44, 
-            max_tokens=16384,
+            context_length=128000,
+            max_tokens=16000,
             detail='OpenAI 最具性价比的模型'
         )
     }

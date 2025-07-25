@@ -19,4 +19,30 @@
 
 # 精华列表
 
-文档仍在更新中，敬请期待……
+```
+精华列表
+```
+
+获取当前群组的所有精华消息列表
+
+## 返回
+```
+@sender
+群精华列表：
+{sender_nick} ({sender_id})：
+{message_content}
+由 {operator_nick} ({operator_id}) 于
+    {operator_time} 设置。
+
+{sender_nick} ({sender_id})：
+{message_content}
+由 {operator_nick} ({operator_id}) 于
+    {operator_time} 设置。
+...
+```
+
+## 注意事项
+1. 只能在群聊中使用
+2. 显示群内所有精华消息的详细信息
+3. 包含消息发送者、内容、设置者和设置时间
+4. 如果群内没有精华消息，将返回空列表
