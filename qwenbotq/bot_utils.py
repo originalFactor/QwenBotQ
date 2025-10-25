@@ -15,9 +15,9 @@
 # You should have received a copy of the GNU General Public License
 # along with QwenBotQ.  If not, see <https://www.gnu.org/licenses/>.
 
-'''
+"""
 供主体使用的Bot实用函数
-'''
+"""
 
 import asyncio
 from random import random
@@ -35,150 +35,145 @@ from .database import User
 
 
 async def get_user(_id: str, nick: Optional[str], bot: Bot):
-    '获取用户'
+    "获取用户"
     user = await User.get(_id)
     if not user:
         user = User(id=_id)
         await user.insert()
     if user.profile_expire <= date.today():
-        await user.set({User.nick: (await bot.get_stranger_info(user_id=int(_id)))['nickname']})
+        await user.set(
+            {User.nick: (await bot.get_stranger_info(user_id=int(_id)))["nickname"]}
+        )
     if user.bind_power == 0:
-        await user.set({'bind_power': random()*2})
+        await user.set({"bind_power": random() * 2})
     if nick:
         user.nick = nick
     return user
 
 
-def require(cost_permission: int = 0, cost_coins: int = 0, only_check: bool = False) -> User:
+def require(
+    cost_permission: int = 0, cost_coins: int = 0, only_check: bool = False
+) -> User:
     "用于获取发送用户的权限函数，可指定最小权限等级以及消耗积分数量"
+
     async def _require(event: MessageEvent, matcher: Matcher, bot: Bot):
         user = await get_user(event.get_user_id(), event.sender.nickname, bot)
         if user.permission < cost_permission:
             await matcher.finish(
-                f"\n您的权限不足，至少需要{cost_permission}。",
-                at_sender=True
+                f"\n您的权限不足，至少需要{cost_permission}。", at_sender=True
             )
         if cost_coins:
             if user.coins < cost_coins:
                 await matcher.finish(
-                    f"\n您的积分不足，至少需要{cost_coins}。",
-                    at_sender=True
+                    f"\n您的积分不足，至少需要{cost_coins}。", at_sender=True
                 )
             if not only_check:
                 await user.inc({User.coins: -cost_coins})
                 await matcher.send(
-                    f"\n您已被扣除所需的{cost_coins}点积分！",
-                    at_sender=True
+                    f"\n您已被扣除所需的{cost_coins}点积分！", at_sender=True
                 )
                 await asyncio.sleep(0.5)
         return user
+
     return Depends(_require, validate=True)
 
 
 async def _arg_plain_text(args: Annotated[Message, CommandArg()]) -> str:
-    '获取命令纯文本参数'
+    "获取命令纯文本参数"
     return args.extract_plain_text().strip()
+
+
 arg_plain_text = Depends(_arg_plain_text, validate=True)
 
 
-def arg(tp: Union[type, Sequence[type]], least: int = 0) -> Union[List[Any], Tuple[Any, ...]]:
+def arg(tp: Union[type, Sequence[type]], least: int = 0) -> Any:
     "获取至少least个tp类型的命令参数"
-    async def _arg(
-        matcher: Matcher,
-        arg: Annotated[str, arg_plain_text]
-    ):
+
+    async def _arg(matcher: Matcher, arg: Annotated[str, arg_plain_text]):
         if isinstance(tp, Sequence):
             args = arg.strip().split(maxsplit=len(tp))
             try:
-                return tuple([
-                    tp[i](v)
-                    for i, v in enumerate(args)
-                ])
+                return tuple([tp[i](v) for i, v in enumerate(args)])
             except ValueError:
-                await matcher.finish(
-                    f'输入参数类型不正确。',
-                    at_sender=True
-                )
+                await matcher.finish(f"输入参数类型不正确。", at_sender=True)
         try:
             if len(x := list(map(tp, arg.strip().split()))) >= least:
                 return x
-            await matcher.finish(
-                f'请输入至少{least}个{tp}类型参数！',
-                at_sender=True
-            )
+            await matcher.finish(f"请输入至少{least}个{tp}类型参数！", at_sender=True)
         except ValueError:
-            await matcher.finish(
-                f'\n请输入合法的{tp}类型参数！',
-                at_sender=True
-            )
+            await matcher.finish(f"\n请输入合法的{tp}类型参数！", at_sender=True)
+
     return Depends(_arg, validate=True)
 
 
 def mentioned(least: int = 0) -> List[User]:
     "获取至少least个被提及的用户"
+
     async def _mentioned(
         matcher: Matcher,
         bot: Bot,
         msg: Annotated[Message, EventMessage()],
-        args: Annotated[Sequence[str], arg(str)]
+        args: Annotated[Sequence[str], arg(str)],
     ):
-        mentioned_users = (
-            [await get_user(_.data['qq'], _.data.get('name'), bot) for _ in msg['at']] +
-            [await get_user(_[1:], None, bot) for _ in args if _.startswith('@')]
-        )
+        mentioned_users = [
+            await get_user(_.data["qq"], _.data.get("name"), bot) for _ in msg["at"]
+        ] + [await get_user(_[1:], None, bot) for _ in args if _.startswith("@")]
         if len(mentioned_users) >= least:
             return mentioned_users
-        await matcher.finish(
-            f'\n该功能至少要提及{least}个用户。',
-            at_sender=True
-        )
+        await matcher.finish(f"\n该功能至少要提及{least}个用户。", at_sender=True)
+
     return Depends(_mentioned, validate=True)
 
 
 def reply(required: bool = False) -> Optional[Reply]:
     "获取单条回复信息"
-    async def _reply(
-            matcher: Matcher,
-            event: MessageEvent):
+
+    async def _reply(matcher: Matcher, event: MessageEvent):
         if required and not event.reply:
-            await matcher.finish(
-                "\n必须回复一条消息才能使用此功能",
-                at_sender=True
-            )
+            await matcher.finish("\n必须回复一条消息才能使用此功能", at_sender=True)
         return event.reply
+
     return Depends(_reply, validate=True)
 
 
 @Rule
 async def strict_to_me(event: MessageEvent) -> bool:
-    '剔除掉回复的隐藏@后的提及我'
-    if event.to_me and (event.message_type == 'private' or not event.reply):
+    "剔除掉回复的隐藏@后的提及我"
+
+    if event.to_me and (event.message_type == "private" or not event.reply):
         return True
-    for segment in event.message['at']:
-        if segment.data['qq'] == str(event.self_id):
+
+    self_id = str(event.self_id)
+
+    for segment in event.message["at"]:
+        if segment.data["qq"] == self_id:
             return True
+
+    plaintext = event.message.extract_plain_text()
+    if f"@{self_id}" in plaintext:
+        return True
+
     return False
 
 
 async def _get_flow_replies(
-    replied: Annotated[Optional[Reply], reply()],
-    bot: Bot
+    replied: Annotated[Optional[Reply], reply()], bot: Bot
 ) -> Optional[List[Reply]]:
-    '获取回复链'
+    "获取回复链"
     if not replied:
         return None
     replies = [replied]
-    while replies[-1].message['reply']:
+    while replies[-1].message["reply"]:
         replies.append(
             Reply.model_validate(
-                await bot.get_msg(
-                    message_id=replies[-1].message['reply', 0].data['id']
-                )
+                await bot.get_msg(message_id=replies[-1].message["reply", 0].data["id"])
             )
         )
     return list(reversed(replies))
 
+
 get_flow_replies = Depends(_get_flow_replies, validate=True)
 
+
 def strOpt(i: str | None) -> str:
-    return i if i else ''
+    return i if i else ""

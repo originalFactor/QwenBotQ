@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with QwenBotQ.  If not, see <https://www.gnu.org/licenses/>.
 
-'数据库模块'
+"数据库模块"
 
 # standard import
 from random import random
@@ -34,7 +34,8 @@ from . import config
 
 
 class Mongo:
-    'nonebot_plugin_mongodb 修复内嵌版'
+    "nonebot_plugin_mongodb 修复内嵌版"
+
     _client: Optional[AsyncIOMotorClient] = None
 
     @classmethod
@@ -50,27 +51,29 @@ class Mongo:
 
     @classmethod
     async def register_models(cls, document_models: Sequence[Type[Document]]):
-        '注册模型'
+        "注册模型"
         database = getattr(cls.client(), config.mongo_db)
         await init_beanie(database, document_models=document_models)
 
 
 class Binded(BaseModel):
-    '绑定用户'
+    "绑定用户"
+
     id: str
     expire: date
 
-    @field_validator('expire', mode='before')
+    @field_validator("expire", mode="before")
     @classmethod
     def expire_to_date(cls, v: datetime | date) -> date:
-        'datetime转化为date'
+        "datetime转化为date"
         return v.date() if isinstance(v, datetime) else v
 
 
 class User(Document):
-    '用户文档'
+    "用户文档"
+
     id: Indexed(str)  # type: ignore
-    nick: str = 'Unknown'
+    nick: str = "Unknown"
     permission: int = 0
     system_prompt: str = config.system_prompt
     temprature: float = 1.0
@@ -82,34 +85,37 @@ class User(Document):
     binded: Optional[Binded] = None
     profile_expire: date = date.min
     bind_power: float = 0
+    hide_usage: bool = False
 
-    @field_validator('sign_expire', 'profile_expire',  mode='before')
+    @field_validator("sign_expire", "profile_expire", mode="before")
     @classmethod
     def expire_to_date(cls, v: datetime | date) -> date:
-        'datetime转化为date'
+        "datetime转化为date"
         return v.date() if isinstance(v, datetime) else v
 
 
 class SubscribeStatus(Document):
-    '订阅状态'
-    id: Indexed(str) # type: ignore
+    "订阅状态"
+
+    id: Indexed(str)  # type: ignore
     last_update: int = 0
     living: bool = False
 
 
 async def apply_bind(a: User, b: User) -> date:
-    '应用一个绑定'
-    expire = date.today()+timedelta(1)
-    await a.set({'binded': Binded(id=b.id, expire=expire)})
-    await b.set({'binded': Binded(id=a.id, expire=expire)})
+    "应用一个绑定"
+    expire = date.today() + timedelta(1)
+    await a.set({"binded": Binded(id=b.id, expire=expire)})
+    await b.set({"binded": Binded(id=a.id, expire=expire)})
     return expire
+
 
 driver = get_driver()
 
 
 @driver.on_startup
 async def initialize_database():
-    '初始化数据库'
+    "初始化数据库"
 
     # 引擎初始化
 

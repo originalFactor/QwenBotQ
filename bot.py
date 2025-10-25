@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with QwenBotQ.  If not, see <https://www.gnu.org/licenses/>.
 
-'机器人启动文件'
+"机器人启动文件"
 
 from sys import stdout, platform
 from os import environ
@@ -25,18 +25,18 @@ from nonebot.adapters.onebot.v11 import Adapter as OnebotV11Adapter
 from nonebot.log import logger_id, default_filter
 
 # 修复 AIODNS 错误
-if platform=='win32':
+if platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 # 作为服务运行时不重复输出时间
-if environ.get('RUNNING_AS_SERVICE', 'no') == 'yes':
+if environ.get("RUNNING_AS_SERVICE", "no") == "yes":
     nonebot.logger.remove(logger_id)
-    nonebot.logger.add(
+    _ = nonebot.logger.add(
         stdout,
         level=0,
         diagnose=True,
         format="[<lvl>{level}</lvl>] <c><u>{name}</u></c> | {message}",
-        filter=default_filter
+        filter=default_filter,
     )
 
 nonebot.init()
@@ -44,7 +44,7 @@ nonebot.init()
 driver = nonebot.get_driver()
 driver.register_adapter(OnebotV11Adapter)
 
-nonebot.load_plugin("qwenbotq")
+_ = nonebot.load_plugin("qwenbotq")
 
 if __name__ == "__main__":
     nonebot.run()

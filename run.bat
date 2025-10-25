@@ -1,2 +1,3 @@
-py -m poetry run nb run
+@echo off
+poetry run nb run
 pause
