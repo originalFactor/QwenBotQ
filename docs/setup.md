@@ -1,18 +1,18 @@
 <!--
  Copyright (C) 2024 originalFactor
- 
+
  This file is part of QwenBotQ.
- 
+
  QwenBotQ is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
  the Free Software Foundation, either version 3 of the License, or
  (at your option) any later version.
- 
+
  QwenBotQ is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  GNU General Public License for more details.
- 
+
  You should have received a copy of the GNU General Public License
  along with QwenBotQ.  If not, see <https://www.gnu.org/licenses/>.
 -->
@@ -21,30 +21,15 @@
 
 ## 准备工作
 
+> 推荐使用 Python 3.11。其他版本可能出现意料外的兼容性问题。
+
 在开始之前，请确保您安装了 Python 3 版本 `>=3.9`。
 
-否则，对于 Windows 系统，您可能需要 [在此处下载](https://www.python.org/downloads/windows/)。
-
-对于 Linux，系统一般情况下已经自带了Python 3，否则您可以尝试：
-```sh
-# Debian/Ubuntu
-sudo apt install python3
-
-# RHEL/CentOS
-sudo yum install python3
-
-# ArchLinux
-sudo pacman -Syu python3
-```
+对于 Windows 系统，您可能需要 [在此处下载](https://www.python.org/downloads/windows/)。
 
 若您系统自带的 Python 3 版本过低，请尝试 [pyenv](https://github.com/pyenv/pyenv#installation)
 
-并且确保您安装了 Poetry 管理器。
-
-如果您还没有安装 Poetry ，请在终端中执行如下代码：
-```sh
-pip install poetry
-```
+并且确保您安装了 [Poetry 管理器](https://python-poetry.org/docs/#installation)。
 
 ## 部署后端
 
@@ -62,40 +47,88 @@ pip install poetry
 
 具体的 NapCat 安装教程可以在 [这里](https://napcat.napneko.icu/guide/start-install) 看到。
 
-然后你需要进行一些 [配置](https://napcat.napneko.icu/config/basic)，具体包括登录、启用正向WS服务。
+然后你需要进行一些 [配置](https://napcat.napneko.icu/config/basic)，具体包括登录、启用正向 WS 服务。
 
 其他的配置项正常情况下不需要改动。如果有问题，可以提 Issue。
 
-## 开始工作！
+## 拉取项目
 
-首先，让我们拉取项目并展开工作目录
 ```sh
 # 先拉取项目
 git clone https://github.com/originalFactor/QwenBotQ.git
 # 进入项目目录
 cd QwenBotQ
-```
-
-然后编辑配置文件以使它符合我们的情况
-```sh
-# 将模板文件复制
-cp example.env.prod .env.prod
-# 编辑配置文件
-vim .env.prod
-```
-[参考文档](reference.md)
-
-尤其需要更改 `SUPERUSERS` 内数据为你的超管QQ号，
-将 `ONEBOT_WS_URLS` 内数据改为 `ws://<NapCat所在服务器IP地址或域名>:3001`，
-更改 `MONGO_URI` 为你的数据库地址，
-`API_KEY` 为你的阿里云灵积API-KEY。
-
-接下来，我们安装依赖
-```sh
+# 安装依赖
 poetry install
 ```
 
-然后就可以运行机器人了
+## 安装数据库
+
+运行本项目之前，您必须拥有一个 MongoDB 数据库。
+
+您可以在 [MongoDB 官网](https://www.mongodb.com/) 下载并安装。
+
+您也可以使用 [MongoDB Atlas](https://www.mongodb.com/atlas) 或者其他基于云的服务。
+
+对于本机数据库，您无需添加额外的配置项。
+
+对于 MongoDB Atlas，您需要在 `.env.prod` 中添加如下配置项：
+
+```dotenv
+MONGO_URI='您的 MongoDB 连接字符串'
+MONGO_DB='您的数据库名称'
+```
+
+以上内容应由您的数据库提供方提供。
+
+## 配置基础设置
+
+您需要编辑一些基础的配置项：
+
+```dotenv
+# 固定
+DRIVER=~aiohttp
+COMMAND_START=[""]
+
+# OneBot Token，在 NapCat 面板中设置，必须设置
+ONEBOT_ACCESS_TOKEN=token
+
+# OneBot WS 地址，在 NapCat 面板中设置，必须设置
+ONEBOT_WS_URLS=["ws://127.0.0.1:3001"]
+
+# 超级用户，拥有一些管理员指令的权限，可以不设置
+SUPERUSERS=["12345678"]
+
+# OpenAI format API 端点，默认为 OpenAI 官方端点
+BASE_URL='https://api.deepseek.com/beta'
+
+# 端点的 API Key，必须设置
+API_KEY='sk-xxxx'
+
+# AI 的系统提示词，默认为 'You are a smart assistant.'
+SYSTEM_PROMPT='你是一个聊天机器人，你可以解答用户的问题，或者插科打诨，你使用QQ聊天，你应避免使用Markdown等QQ不支持的格式'
+
+# 模型列表
+MODELS='
+{
+    "deepseek-chat": {  # API 端点中的模型ID
+        "name": "DeepSeek V3",  # 模型名称
+        "input_cost": 0.2,  # 输入价格，积分/kTokens，向上取整
+        "output_cost": 0.8,  # 输出价格，积分/kTokens，向上取整
+        "max_tokens": 4096,  # 最大输出Tokens
+        "context_length": 65536,  # 最大上下文长度
+        "detail": "DeepSeek V3 最新模型"  # 模型介绍
+    }
+}
+```
+
+更详细的配置项参考 [这个文档](reference.md)
+
+也可以直接查看代码 [config_model.py](https://github.com/originalFactor/QwenBotQ/blob/dev/qwenbotq/config_model.py)
+
+## 启动项目
+
 ```sh
-python ./bot.py
+# 启动项目
+poetry run nb run
 ```

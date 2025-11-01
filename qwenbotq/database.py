@@ -18,8 +18,8 @@
 "数据库模块"
 
 # standard import
-from random import random
-from typing import Optional, Sequence, Dict, Type
+from collections.abc import Sequence
+from typing import Optional, Dict, Type
 from datetime import date, datetime, timedelta
 
 # third-party import

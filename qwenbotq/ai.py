@@ -24,17 +24,24 @@ SYSPROMPT_APPEND = """
 3. 因此你应该避免在应连续的内容中插入双换行，导致奇怪的分段效果。你可以通过在两个换行间插入 `\\~` 来避免这个问题，例如 `\\n\\~\\n` 。
 """
 
+
+# Standard imports
 import asyncio
 from math import ceil
 from typing import Annotated, Mapping, Optional, Sequence, Tuple
 from urllib.error import HTTPError
+
+# OpenAI imports
 from openai import AsyncOpenAI, AsyncStream
 from openai.types.chat import ChatCompletionChunk
-from tiktoken import encoding_for_model, get_encoding
+
+# Nonebot imports
 from nonebot import logger, on_message, on_command
 from nonebot.params import EventPlainText
 from nonebot.adapters.onebot.v11 import Bot, MessageEvent, MessageSegment
 from nonebot.adapters.onebot.v11.event import Reply
+
+# Local imports
 from . import config
 from .database import User
 from .bot_utils import (
@@ -45,14 +52,21 @@ from .bot_utils import (
     arg,
 )
 
+# Tiktoken imports
+if not config.fast_tokenize:
+    from tiktoken import encoding_for_model, get_encoding
+
 openai = AsyncOpenAI(api_key=config.api_key, base_url=config.base_url)
 
 
-async def tokenize(model: str, messages: Sequence[Mapping[str, str]]) -> int:
+# 分词
+def tokenize(model: str, messages: Sequence[Mapping[str, str]]) -> int:
+    if config.fast_tokenize:
+        return sum(len(_["content"]) + 4 for _ in messages)
     try:
-        encoding = encoding_for_model(model)
+        encoding = encoding_for_model(model)  # type: ignore
     except KeyError:
-        encoding = get_encoding("cl100k_base")
+        encoding = get_encoding("cl100k_base")  # type: ignore
     return sum(len(encoding.encode(_["content"])) + 4 for _ in messages)
 
 
@@ -101,19 +115,17 @@ async def llm(
     messages.append({"role": "user", "content": prompt})
 
     # 成本控制
-    if ceil(
-        (
-            (
-                usage := (
-                    await tokenize(user.model, messages)
-                    if (_ := config.models[user.model].input_cost)
-                    else 0
-                )
-                / 1000
-                * _
+    if (
+        ceil(
+            usage := ceil(
+                tokenize(user.model, messages)
+                if (_ := config.models[user.model].input_cost)
+                else 0
             )
-            + config.models[user.model].output_cost
+            / 1000
+            * _
         )
+        + config.models[user.model].output_cost
         > user.coins
     ):
         await LLMMatcher.finish(
@@ -287,7 +299,9 @@ async def hide_usage(
     args: Annotated[Sequence[bool], arg(bool)],
 ):
     "隐藏消耗积分"
-    hide_usage = args if args and args[0] else not (user.hide_usage or False)
+    hide_usage = (
+        args[0] if args and args[0] is not None else not (user.hide_usage or False)
+    )
     await user.set({User.hide_usage: hide_usage})
     await HideUsageMatcher.finish(
         message=f"已尝试设定隐藏消耗积分为 {'启用' if hide_usage else '禁用'}",

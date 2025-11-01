@@ -93,11 +93,17 @@ def arg(tp: Union[type, Sequence[type]], least: int = 0) -> Any:
         if isinstance(tp, Sequence):
             args = arg.strip().split(maxsplit=len(tp))
             try:
-                return tuple([tp[i](v) for i, v in enumerate(args)])
+                return tuple(
+                    [
+                        (boolize if tp[i] == bool else tp[i])(v)
+                        for i, v in enumerate(args)
+                    ]
+                )
             except ValueError:
                 await matcher.finish(f"输入参数类型不正确。", at_sender=True)
         try:
-            if len(x := list(map(tp, arg.strip().split()))) >= least:
+            _tp = boolize if tp == bool else tp
+            if len(x := list(map(_tp, arg.strip().split()))) >= least:
                 return x
             await matcher.finish(f"请输入至少{least}个{tp}类型参数！", at_sender=True)
         except ValueError:
@@ -177,3 +183,7 @@ get_flow_replies = Depends(_get_flow_replies, validate=True)
 
 def strOpt(i: str | None) -> str:
     return i if i else ""
+
+
+def boolize(i: str | None) -> bool:
+    return i.strip()[0].lower() in ("t", "y", "是", "真", "启") if i else False
