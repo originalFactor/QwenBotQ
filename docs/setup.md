@@ -17,107 +17,97 @@
  along with QwenBotQ.  If not, see <https://www.gnu.org/licenses/>.
 -->
 
-# 安装
+# 安装指南
 
-## 准备工作
+## 准备环境
 
-> 推荐使用 Python 3.11。其他版本可能出现意料外的兼容性问题。
+> 推荐使用 Python 3.11 版本，其他版本可能存在兼容性问题。
 
-在开始之前，请确保您安装了 Python 3 版本 `>=3.9`。
+在开始安装前，请确保您的系统已安装 Python 3.9 或更高版本：
 
-对于 Windows 系统，您可能需要 [在此处下载](https://www.python.org/downloads/windows/)。
+- Windows 用户可通过 [Python 官网](https://www.python.org/downloads/windows/) 下载安装
+- 如果系统自带的 Python 版本较低，建议使用 [pyenv](https://github.com/pyenv/pyenv#installation) 管理多版本 Python
 
-若您系统自带的 Python 3 版本过低，请尝试 [pyenv](https://github.com/pyenv/pyenv#installation)
+另外，还需要安装 [Poetry 包管理器](https://python-poetry.org/docs/#installation)。
 
-并且确保您安装了 [Poetry 管理器](https://python-poetry.org/docs/#installation)。
+## 部署后端服务
 
-## 部署后端
+请注意：这只是一个机器人客户端程序，它只实现了机器人的核心逻辑，需要配合后端服务才能运行。
 
-欧！先别急！因为这只是一个客户端——它只实现了机器人本身的逻辑，而没有对接具体的平台。
+本项目基于 Nonebot2 框架开发，并特别针对 NapCat 进行了优化适配。虽然理论上 NapCat 兼容 OneBot V11 和 Go-CQHTTP 协议，但实际使用中存在差异。
 
-这个项目使用 Nonebot2 框架，且为 NapCat 精心设计。
+目前只有一个功能受兼容性影响：群精华功能。这是因为 NapCat 的 `get_essence_msg_list` 接口返回格式与其他后端不同，我们为此做了专门适配。
 
-虽然从理论上来说，NapCat 应当兼容 OneBot V11 和 Go-CQHTTP 协议，但事实上并不是这样。
+简单来说：您可以使用任何 OneBot V11 后端，但只有使用 NapCat 时才能正常使用群精华功能。
 
-因此，该项目为 NapCat 进行了一些深度兼容，导致破坏了与其他服务端的兼容性——事实上仅有一个功能受影响。
+您可以参考 [NapCat 官方安装指南](https://napcat.napneko.icu/guide/start-install) 完成安装，并按 [配置教程](https://napcat.napneko.icu/config/basic) 完成基础设置（主要是登录账号和启用正向 WebSocket 服务）。
 
-群精华——`get_essence_msg_list`接口，NapCat 的返回格式与其他后端不同。我们为此专门做了兼容。
+其他配置项保持默认即可，如有问题欢迎提交 Issue。
 
-总而言之，你可以使用任何 OneBot V11 后端，但是无法使用群精华功能，除非您使用 NapCat。
-
-具体的 NapCat 安装教程可以在 [这里](https://napcat.napneko.icu/guide/start-install) 看到。
-
-然后你需要进行一些 [配置](https://napcat.napneko.icu/config/basic)，具体包括登录、启用正向 WS 服务。
-
-其他的配置项正常情况下不需要改动。如果有问题，可以提 Issue。
-
-## 拉取项目
+## 获取项目代码
 
 ```sh
-# 先拉取项目
+# 克隆项目代码
 git clone https://github.com/originalFactor/QwenBotQ.git
 # 进入项目目录
 cd QwenBotQ
-# 安装依赖
+# 安装项目依赖
 poetry install
 ```
 
-## 安装数据库
+## 安装和配置数据库
 
-运行本项目之前，您必须拥有一个 MongoDB 数据库。
+运行本项目前，您需要准备一个 MongoDB 数据库：
 
-您可以在 [MongoDB 官网](https://www.mongodb.com/) 下载并安装。
+- 您可以在 [MongoDB 官网](https://www.mongodb.com/) 下载并本地安装
+- 也可以使用 [MongoDB Atlas](https://www.mongodb.com/atlas) 或其他云数据库服务
 
-您也可以使用 [MongoDB Atlas](https://www.mongodb.com/atlas) 或者其他基于云的服务。
-
-对于本机数据库，您无需添加额外的配置项。
-
-对于 MongoDB Atlas，您需要在 `.env.prod` 中添加如下配置项：
+如果使用本地数据库，无需额外配置；如果使用 MongoDB Atlas 等云服务，需要在 `.env.prod` 文件中添加如下配置：
 
 ```dotenv
 MONGO_URI='您的 MongoDB 连接字符串'
 MONGO_DB='您的数据库名称'
 ```
 
-以上内容应由您的数据库提供方提供。
+这些信息通常由您的数据库服务提供方提供。
 
-## 配置基础设置
+## 基础配置说明
 
-您需要编辑一些基础的配置项：
+您需要在配置文件中设置以下基础参数：
 
 ```dotenv
-# 固定
+# 固定配置项，无需修改
 DRIVER=~aiohttp
 COMMAND_START=[""]
 
-# OneBot Token，在 NapCat 面板中设置，必须设置
+# OneBot Token，必须设置，可在 NapCat 面板中配置
 ONEBOT_ACCESS_TOKEN=token
 
-# OneBot WS 地址，在 NapCat 面板中设置，必须设置
+# OneBot WebSocket 地址，必须设置，可在 NapCat 面板中查看
 ONEBOT_WS_URLS=["ws://127.0.0.1:3001"]
 
-# 超级用户，拥有一些管理员指令的权限，可以不设置
+# 超级用户账号列表，拥有管理员权限，可选配置
 SUPERUSERS=["12345678"]
 
-# OpenAI format API 端点，默认为 OpenAI 官方端点
+# OpenAI 格式 API 端点，默认为 OpenAI 官方端点
 BASE_URL='https://api.deepseek.com/beta'
 
-# 端点的 API Key，必须设置
+# API 密钥，必须设置
 API_KEY='sk-xxxx'
 
-# AI 的系统提示词，默认为 'You are a smart assistant.'
+# AI 系统提示词，默认值为 'You are a smart assistant.'
 SYSTEM_PROMPT='你是一个聊天机器人，你可以解答用户的问题，或者插科打诨，你使用QQ聊天，你应避免使用Markdown等QQ不支持的格式'
 
-# 模型列表
+# 模型配置列表
 MODELS='
 {
-    "deepseek-chat": {  # API 端点中的模型ID
-        "name": "DeepSeek V3",  # 模型名称
-        "input_cost": 0.2,  # 输入价格，积分/kTokens，向上取整
-        "output_cost": 0.8,  # 输出价格，积分/kTokens，向上取整
-        "max_tokens": 4096,  # 最大输出Tokens
-        "context_length": 65536,  # 最大上下文长度
-        "detail": "DeepSeek V3 最新模型"  # 模型介绍
+    "deepseek-chat": {  # API 中使用的模型ID
+        "name": "DeepSeek V3",  # 显示给用户的模型名称
+        "input_cost": 0.2,  # 输入价格，单位：积分/kTokens（向上取整）
+        "output_cost": 0.8,  # 输出价格，单位：积分/kTokens（向上取整）
+        "max_tokens": 4096,  # 最大输出Tokens数量
+        "context_length": 65536,  # 模型最大上下文长度
+        "detail": "DeepSeek V3 最新模型"  # 模型详细介绍
     }
 }
 ```

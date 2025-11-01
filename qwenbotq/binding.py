@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Administrator
+# Copyright (C) 2024 originalFactor
 #
 # This file is part of QwenBotQ.
 #
@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with QwenBotQ.  If not, see <https://www.gnu.org/licenses/>.
 
-'绑定相关'
+"绑定相关"
 
 from random import choice, random
 from datetime import date, timedelta
@@ -25,45 +25,36 @@ from nonebot.adapters.onebot.v11 import GroupMessageEvent, Bot, MessageSegment
 from nonebot.adapters.onebot.v11.event import Reply
 from . import config
 from .database import User, apply_bind
-from .bot_utils import (
-    mentioned,
-    require,
-    reply,
-    get_user
-)
+from .bot_utils import mentioned, require, reply, get_user
 
 
-BindMatcher = on_command('官宣', block=True)
+BindMatcher = on_command("官宣", block=True)
 
 
 @BindMatcher.handle()
 async def bind(
     mention: Annotated[Sequence[User], mentioned(2)],
-    _: Annotated[User, require(1, config.bind_cost)]
+    _: Annotated[User, require(1, config.bind_cost)],
 ):
-    '绑定关系'
+    "绑定关系"
     expire = await apply_bind(mention[0], mention[1])
     await BindMatcher.finish(
-        '\n已尝试绑定\n'
-        f'{mention[0].nick} ({mention[0].id})\n'
-        '和\n'
-        f'{mention[1].nick} ({mention[1].id})\n'
-        '为本日CP！\n'
+        "\n已尝试绑定\n"
+        f"{mention[0].nick} ({mention[0].id})\n"
+        "和\n"
+        f"{mention[1].nick} ({mention[1].id})\n"
+        "为本日CP！\n"
         f'有效期至：{expire.strftime("%Y/%m/%d")}',
-        at_sender=True
+        at_sender=True,
     )
 
 
-WifeMatcher = on_fullmatch('今日老公', block=True)
+WifeMatcher = on_fullmatch("今日老公", block=True)
 
 
 @WifeMatcher.handle()
-async def wife(
-    user: Annotated[User, require()],
-    event: GroupMessageEvent,
-    bot: Bot
-):
-    '群友老公'
+async def wife(user: Annotated[User, require()], event: GroupMessageEvent, bot: Bot):
+    "群友老公"
     if user.binded and user.binded.expire > date.today():
         cp_user = await get_user(user.binded.id, None, bot)
         expire = user.binded.expire
@@ -71,95 +62,85 @@ async def wife(
         members = await bot.get_group_member_list(group_id=event.group_id)
         while True:
             x = choice(members)
-            cp_user = await get_user(str(x['user_id']), x['nickname'], bot)
-            power = random()*2
-            if (cp_user.id == user.id) or\
-                    (cp_user.binded and cp_user.binded.expire > date.today()) or\
-                    (cp_user.bind_power > power):
+            cp_user = await get_user(str(x["user_id"]), x["nickname"], bot)
+            power = random() * 2
+            if (
+                (cp_user.id == user.id)
+                or (cp_user.binded and cp_user.binded.expire > date.today())
+                or (cp_user.bind_power > power)
+            ):
                 members.remove(x)
                 power += 0.2
                 continue
             break
         expire = await apply_bind(user, cp_user)
     await WifeMatcher.finish(
-        '\n你今天的老公是：' +
-        MessageSegment.image(f'https://q1.qlogo.cn/g?b=qq&nk={cp_user.id}&s=5') +
-        f'{cp_user.nick} ({cp_user.id})\n'
+        "\n你今天的老公是："
+        + MessageSegment.image(f"https://q1.qlogo.cn/g?b=qq&nk={cp_user.id}&s=5")
+        + f"{cp_user.nick} ({cp_user.id})\n"
         f'过期时间：{expire.strftime("%Y/%m/%d")}\n'
-        '\n今日关系已绑定，要好好珍惜哦！',
-        at_sender=True
+        "\n今日关系已绑定，要好好珍惜哦！",
+        at_sender=True,
     )
 
 
-RefreshMatcher = on_command('换老公', block=True)
+RefreshMatcher = on_command("换老公", block=True)
 
 
 @RefreshMatcher.handle()
-async def refresh(
-    user: Annotated[User, require(0, config.refresh_price)]
-):
-    '解除绑定'
-    await user.set({'binded': None})
+async def refresh(user: Annotated[User, require(0, config.refresh_price)]):
+    "解除绑定"
+    await user.set({"binded": None})
 
-    await RefreshMatcher.finish(
-        '\n已解除绑定！',
-        at_sender=True
-    )
+    await RefreshMatcher.finish("\n已解除绑定！", at_sender=True)
 
 
-ForkMatcher = on_command('恢复记录', block=True)
+ForkMatcher = on_command("恢复记录", block=True)
 
 
 @ForkMatcher.handle()
 async def fork(
-        bot: Bot,
-        _: Annotated[User, require(0, config.fork_cost)],
-        replied: Annotated[Reply, reply(True)]):
-    '应用老搭'
+    bot: Bot,
+    _: Annotated[User, require(0, config.fork_cost)],
+    replied: Annotated[Reply, reply(True)],
+):
+    "应用老搭"
     if str(replied.sender.user_id) not in config.trusted_wife_source:
-        await ForkMatcher.finish(
-            '\n请使用可信的数据源！',
-            at_sender=True
-        )
-    first = replied.message['at', 0].data
-    user = await get_user(first['qq'], first['name'], bot)
+        await ForkMatcher.finish("\n请使用可信的数据源！", at_sender=True)
+    first = replied.message["at", 0].data
+    user = await get_user(first["qq"], first["name"], bot)
     plain = replied.message.extract_plain_text()
-    nick = plain.split(':', 1)[1].split('(', 1)[0]
-    _id = plain.split('(', 1)[1].split(')', 1)[0]
+    nick = plain.split(":", 1)[1].split("(", 1)[0]
+    _id = plain.split("(", 1)[1].split(")", 1)[0]
     user_wife = await get_user(_id, nick, bot)
     expire = await apply_bind(user, user_wife)
     await ForkMatcher.finish(
-        '\n已成功绑定\n'
-        f'{user.nick} ({user.id})\n'
-        '和\n'
-        f'{user_wife.nick} ({user_wife.id})\n'
-        '的关系！(来自可信来源的外部数据)\n'
+        "\n已成功绑定\n"
+        f"{user.nick} ({user.id})\n"
+        "和\n"
+        f"{user_wife.nick} ({user_wife.id})\n"
+        "的关系！(来自可信来源的外部数据)\n"
         f'过期时间：{expire.strftime("%Y/%m/%d")}',
-        at_sender=True
+        at_sender=True,
     )
 
-RenewMatcher = on_command('续期', block=True)
+
+RenewMatcher = on_command("续期", block=True)
 
 
 @RenewMatcher.handle()
-async def renew(
-    user: Annotated[User, require(0, config.renew_cost)],
-    bot: Bot
-):
-    '续期关系'
+async def renew(user: Annotated[User, require(0, config.renew_cost)], bot: Bot):
+    "续期关系"
     if user.binded:
         w = await get_user(user.binded.id, None, bot)
         new_exp = user.binded.expire + timedelta(1)
-        await w.set({'binded.expire': new_exp})
-        await user.set({'binded.expire': new_exp})
+        await w.set({"binded.expire": new_exp})
+        await user.set({"binded.expire": new_exp})
         await RenewMatcher.finish(
-            '\n已成功续期您和\n'
+            "\n已成功续期您和\n"
             f"{w.nick} ({w.id})\n"
-            '的关系至\n'
+            "的关系至\n"
             f'{user.binded.expire.strftime("%Y/%m/%d")}',
-            at_sender=True
+            at_sender=True,
         )
-    await RenewMatcher.finish(
-        '\n无绑定数据',
-        at_sender=True
-    )
+    await RenewMatcher.finish("\n无绑定数据", at_sender=True)
