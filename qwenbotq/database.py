@@ -83,11 +83,10 @@ class User(Document):
     sign_expire: date = date.min
     model: str = list(config.models.keys())[0]
     binded: Optional[Binded] = None
-    profile_expire: date = date.min
     bind_power: float = 0
     hide_usage: bool = False
 
-    @field_validator("sign_expire", "profile_expire", mode="before")
+    @field_validator("sign_expire", mode="before")
     @classmethod
     def expire_to_date(cls, v: datetime | date) -> date:
         "datetime转化为date"

@@ -40,10 +40,9 @@ async def get_user(_id: str, nick: Optional[str], bot: Bot):
     if not user:
         user = User(id=_id)
         await user.insert()
-    if user.profile_expire <= date.today():
-        await user.set(
-            {User.nick: (await bot.get_stranger_info(user_id=int(_id)))["nickname"]}
-        )
+    await user.set(
+        {User.nick: (await bot.get_stranger_info(user_id=int(_id)))["nickname"]}
+    )
     if user.bind_power == 0:
         await user.set({"bind_power": random() * 2})
     if nick:
