@@ -28,6 +28,7 @@ from . import config
 last_call: dict[int, list[str]] = {}
 max_size = 128
 
+
 async def getkw(event: MessageEvent) -> list[str]:
     if id(event) in last_call:
         return last_call[id(event)]
@@ -35,16 +36,18 @@ async def getkw(event: MessageEvent) -> list[str]:
     uid = event.get_user_id()
     msg = event.get_plaintext()
     if uid in config.keywords:
-        ans += [r for k, r in config.keywords[uid] if k in msg]
-    if 'global' in config.keywords:
-        ans += [r for k, r in config.keywords['global'] if k in msg]
+        ans += [r for k, r in config.keywords[uid].items() if k in msg]
+    if "global" in config.keywords:
+        ans += [r for k, r in config.keywords["global"].items() if k in msg]
     last_call[id(event)] = ans
     if len(last_call) > max_size:
         last_call.pop(next(iter(last_call)))
     return ans
 
+
 async def getkw_match(event: MessageEvent) -> bool:
     return bool(await getkw(event))
+
 
 @on_message(rule=Rule(getkw_match)).handle()
 async def handle_keyword(m: Matcher, r: Annotated[list[str], Depends(getkw)]):

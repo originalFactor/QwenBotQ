@@ -34,16 +34,16 @@ __plugin_meta__ = PluginMetadata(
 
 config = get_plugin_config(Config)
 
-# 声明依赖
-if config.focus:
-    require("nonebot_plugin_apscheduler")
-    import_module(".bilinotice", __package__)
-
-# 导入功能模块
 import_module(".usersystem", __package__)
-import_module(".ai", __package__)
 import_module(".binding", __package__)
 import_module(".group", __package__)
 
+if config.keywords:
+    import_module(".keyword", __package__)
 
-# 因为auotopep8和pylint都要求在代码之前导入，但是这样就获取不到正确的config对象，所以我只能另辟蹊径了XwX
+if config.api_key != "disabled":
+    import_module(".ai", __package__)
+
+if config.focus:
+    require("nonebot_plugin_apscheduler")
+    import_module(".bilinotice", __package__)

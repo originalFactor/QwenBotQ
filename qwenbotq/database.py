@@ -84,7 +84,7 @@ class User(Document):
     model: str = list(config.models.keys())[0]
     binded: Optional[Binded] = None
     bind_power: float = 0
-    hide_usage: bool = False
+    hide_usage: bool = config.display_cost_by_default
 
     @field_validator("sign_expire", mode="before")
     @classmethod

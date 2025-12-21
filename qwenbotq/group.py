@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with QwenBotQ.  If not, see <https://www.gnu.org/licenses/>.
 
-'群组相关功能'
+"群组相关功能"
 
 from random import choice
 from typing import Mapping, Union
@@ -24,65 +24,60 @@ from nonebot.adapters.onebot.v11 import GroupMessageEvent, Bot, Message
 from .models import EssenceMessage
 
 
-MembersMatcher = on_command('群友列表', block=True)
+MembersMatcher = on_command("群友列表", block=True)
+
 
 @MembersMatcher.handle()
 async def group_members(event: GroupMessageEvent, bot: Bot):
-    '群友列表'
+    "群友列表"
     await MembersMatcher.finish(
-        '\n' +
-        (
-            '\n'.join(
+        "\n"
+        + (
+            "\n".join(
                 [
                     f"{x['nickname']} ({x['user_id']})"
-                    for x in (
-                        await bot.get_group_member_list(
-                            group_id=event.group_id
-                        )
-                    )
+                    for x in (await bot.get_group_member_list(group_id=event.group_id))
                 ]
             )
         ),
-        at_sender=True
+        at_sender=True,
     )
 
 
-async def essence_formatter(essence: Mapping[str, Union[int, str]])->Message:
-    '格式化精华消息'
+async def essence_formatter(essence: Mapping[str, Union[int, str]]) -> Message:
+    "格式化精华消息"
     e = EssenceMessage.model_validate(essence)
     m = Message(e.content)
     return (
-        f'{e.sender_nick} ({e.sender_id})：\n'+m+
-        f'\n由 {e.operator_nick} ({e.operator_id}) 于\n\t'
-        f'{e.operator_time} 设置。'
+        f"{e.sender_nick} ({e.sender_id})：\n"
+        + m
+        + f"\n由 {e.operator_nick} ({e.operator_id}) 于\n\t"
+        f"{e.operator_time} 设置。"
     )
 
 
-RandomEssenceMatcher = on_command('随机精华', block=True)
+RandomEssenceMatcher = on_command("随机精华", block=True)
+
 
 @RandomEssenceMatcher.handle()
 async def random_essence(event: GroupMessageEvent, bot: Bot):
-    '获取随机群精华'
+    "获取随机群精华"
     await RandomEssenceMatcher.finish(
-        '\n随机群精华：\n'+
-        await essence_formatter(
-            choice(
-                await bot.get_essence_msg_list(group_id=event.group_id)
-            )
+        "\n随机群精华：\n"
+        + await essence_formatter(
+            choice(await bot.get_essence_msg_list(group_id=event.group_id))
         ),
-        at_sender=True
+        at_sender=True,
     )
 
 
-EssenceMatcher = on_command('精华列表', block=True)
+EssenceMatcher = on_command("精华列表", block=True)
+
 
 @EssenceMatcher.handle()
 async def essences(event: GroupMessageEvent, bot: Bot):
-    '读取群精华列表'
-    msg: Message = '\n群精华列表：'
+    "读取群精华列表"
+    msg: Message = Message("\n群精华列表：")
     for _ in await bot.get_essence_msg_list(group_id=event.group_id):
-        msg += '\n\n' + await essence_formatter(_)
-    await EssenceMatcher.finish(
-        msg,
-        at_sender=True
-    )
+        msg += "\n\n" + await essence_formatter(_)
+    await EssenceMatcher.finish(msg, at_sender=True)

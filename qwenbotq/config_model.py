@@ -63,7 +63,7 @@ class Config(BaseModel):
 
     # 大模型
     base_url: str = "https://api.openai.com/v1"
-    api_key: str  # 灵积API-Key
+    api_key: str = "disabled"  # 灵积API-Key
     system_prompt: str = "You are a smart assistant."  # 默认系统提示词
     models: Mapping[str, Model] = {  # 模型价格
         "gpt-4o-mini": Model(
@@ -77,6 +77,7 @@ class Config(BaseModel):
     }
     set_prompt_cost: int = 1  # 设置提示词价格
     fast_tokenize: bool = True  # 是否使用快速分词器
+    display_cost_by_default: bool = True  # 是否默认显示消耗积分
 
     # 个人中心
     daily_sign_max_coins: int = 50  # 每日签到最大获得积分数
