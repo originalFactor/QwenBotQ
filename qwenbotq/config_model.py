@@ -96,3 +96,15 @@ class Config(BaseModel):
 
     # BiliBili 动态关注
     focus: Optional[FocusOptions] = None
+
+    # 杂项
+
+    # keywords = {
+    #     "uid": {
+    #         "keyword": "response",
+    #     },
+    #     "global": {
+    #         "keyword": "response",
+    #     },
+    # }
+    keywords: Mapping[str, Mapping[str, str]] = {}
