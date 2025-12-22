@@ -30,8 +30,8 @@ max_size = 128
 
 
 async def getkw(event: MessageEvent) -> list[str]:
-    if id(event) in last_call:
-        return last_call[id(event)]
+    if event.message_id in last_call:
+        return last_call[event.message_id]
     ans: list[str] = []
     uid = event.get_user_id()
     msg = event.get_plaintext()
@@ -39,7 +39,7 @@ async def getkw(event: MessageEvent) -> list[str]:
         ans += [r for k, r in config.keywords[uid].items() if k in msg]
     if "global" in config.keywords:
         ans += [r for k, r in config.keywords["global"].items() if k in msg]
-    last_call[id(event)] = ans
+    last_call[event.message_id] = ans
     if len(last_call) > max_size:
         last_call.pop(next(iter(last_call)))
     return ans
