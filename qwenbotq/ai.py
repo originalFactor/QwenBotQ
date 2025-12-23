@@ -97,6 +97,9 @@ async def llm(
         await LLMMatcher.finish("\n虽然你啥也没说，但是我记住你了！", at_sender=True)
 
     # 构建历史消息
+    user.system_prompt = (
+        config.system_prompt if user.system_prompt == "DEFAULT" else user.system_prompt
+    )
     messages = [{"role": "system", "content": user.system_prompt + SYSPROMPT_APPEND}]
     if replies:
         last_role: str | None = None

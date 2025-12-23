@@ -75,7 +75,7 @@ class User(Document):
     id: Indexed(str)  # type: ignore
     nick: str = "Unknown"
     permission: int = 0
-    system_prompt: str = config.system_prompt
+    system_prompt: str = "DEFAULT"
     temprature: float = 1.0
     frequency_penalty: float = 1.0
     presence_penalty: float = 1.0
