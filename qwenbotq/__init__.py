@@ -38,9 +38,6 @@ import_module(".usersystem", __package__)
 import_module(".binding", __package__)
 import_module(".group", __package__)
 
-if config.keywords:
-    import_module(".keyword", __package__)
-
 if config.api_key != "disabled":
     import_module(".ai", __package__)
 

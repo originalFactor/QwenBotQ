@@ -185,8 +185,8 @@ async def llm(
             received += (delta := chunk.choices[0].delta.content)
             received_debug += delta
             # 寻找段落分隔符
-            paras = received[received_len:].split("\n\n")
-            paras[0] = received[:received_len] + paras[0]
+            paras = received[received_len - 1 :].split("\n\n")
+            paras[0] = received[: received_len - 1] + paras[0]
             received_len = len(received)
             if len(paras) <= 1:
                 continue
