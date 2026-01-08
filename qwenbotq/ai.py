@@ -30,6 +30,7 @@ import asyncio
 from math import ceil
 from typing import Annotated, Mapping, Optional, Sequence, Tuple
 from urllib.error import HTTPError
+from json import dumps as dumpjson
 
 # OpenAI imports
 from openai import AsyncOpenAI, AsyncStream
@@ -208,7 +209,9 @@ async def llm(
             reply_id = int(res.get("message_id", reply_id))
 
         await user.inc({User.coins: -usage_after})
-        logger.info(f"FULL CONTENT: {received_debug}")
+
+        messages.append({"role": "assistant", "content": received_debug})
+        logger.debug(f"FULL CONTENT: {dumpjson(messages, indent=2)}")
 
         await asyncio.sleep(0.5)
         if not user.hide_usage:
