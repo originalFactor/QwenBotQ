@@ -38,7 +38,6 @@ if config.focus or config.auto_update:
     require("nonebot_plugin_apscheduler")
 
 if config.auto_update:
-    import_module(".reloader", __package__)
     import_module(".updater", __package__)
 
 import_module(".usersystem", __package__)
