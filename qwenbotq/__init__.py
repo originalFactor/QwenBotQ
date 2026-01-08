@@ -34,19 +34,19 @@ __plugin_meta__ = PluginMetadata(
 
 config = get_plugin_config(Config)
 
+if config.focus or config.auto_update:
+    require("nonebot_plugin_apscheduler")
+
+if config.auto_update:
+    import_module(".reloader", __package__)
+    import_module(".updater", __package__)
+
 import_module(".usersystem", __package__)
 import_module(".binding", __package__)
 import_module(".group", __package__)
 
 if config.api_key != "disabled":
     import_module(".ai", __package__)
-
-if config.focus or config.auto_update:
-    require("nonebot_plugin_apscheduler")
-
-if config.auto_update:
-    require("nonebot_plugin_reboot")
-    import_module(".updater", __package__)
 
 if config.focus:
     import_module(".bilinotice", __package__)

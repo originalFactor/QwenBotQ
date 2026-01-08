@@ -1,5 +1,5 @@
 from nonebot_plugin_apscheduler import scheduler
-from nonebot_plugin_reboot import Reloader
+from .reloader import Reloader
 from nonebot.log import logger
 from nonebot import get_driver
 from os.path import isdir
