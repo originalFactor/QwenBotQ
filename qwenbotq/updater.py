@@ -1,12 +1,14 @@
-from nonebot_plugin_apscheduler import scheduler
-from .reloader import Reloader
-from nonebot.log import logger
-from nonebot import get_driver
-from os.path import isdir
 from subprocess import run
 from pathlib import Path
+from os.path import isdir
+from nonebot import get_driver, on_command
+from nonebot_plugin_apscheduler import scheduler
+from nonebot.log import logger
+from nonebot.permission import SUPERUSER
 
 from . import config
+from .reloader import Reloader
+from .bot_utils import strict_to_me
 
 
 def chk_update():
@@ -61,6 +63,9 @@ def chk_update():
 
     logger.info("QwenBotQ 已更新")
     Reloader.reload()
+
+
+on_command("update", rule=strict_to_me, permission=SUPERUSER).handle()(chk_update)
 
 
 @get_driver().on_startup
