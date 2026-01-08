@@ -39,12 +39,13 @@ if environ.get("RUNNING_AS_SERVICE", "no") == "yes":
         filter=default_filter,
     )
 
-nonebot.init()
+nonebot.init(reboot_load_command=False)
 
 driver = nonebot.get_driver()
 driver.register_adapter(OnebotV11Adapter)
 
-_ = nonebot.load_plugin("qwenbotq")
+if __name__ == "__mp_main__":
+    nonebot.load_plugin("qwenbotq")
 
 if __name__ == "__main__":
     nonebot.run()

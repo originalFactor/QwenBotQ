@@ -41,6 +41,12 @@ import_module(".group", __package__)
 if config.api_key != "disabled":
     import_module(".ai", __package__)
 
-if config.focus:
+if config.focus or config.auto_update:
     require("nonebot_plugin_apscheduler")
+
+if config.auto_update:
+    require("nonebot_plugin_reboot")
+    import_module(".updater", __package__)
+
+if config.focus:
     import_module(".bilinotice", __package__)

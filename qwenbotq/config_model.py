@@ -53,6 +53,8 @@ class Config(BaseModel):
     """The config class of QwenBotQ."""
 
     # 通用
+    auto_update: bool = True  # 是否自动更新
+    github_mirror: str = "https://gh.llkk.cc/"
     supermgr_ids: Sequence[str] = list(
         get_driver().config.superusers
     )  # 超管列表，自动从Nonebot读取
