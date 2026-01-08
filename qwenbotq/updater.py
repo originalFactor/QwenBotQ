@@ -66,3 +66,4 @@ def chk_update():
 @get_driver().on_startup
 async def _():
     scheduler.add_job(chk_update, "interval", hours=24)
+    logger.info("QwenBotQ 自动更新已启用！")

@@ -44,8 +44,6 @@ nonebot.init(reboot_load_command=False)
 driver = nonebot.get_driver()
 driver.register_adapter(OnebotV11Adapter)
 
-if __name__ == "__mp_main__":
-    nonebot.load_plugin("qwenbotq")
-
 if __name__ == "__main__":
+    nonebot.load_plugin("qwenbotq")
     nonebot.run()
