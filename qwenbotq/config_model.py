@@ -67,6 +67,7 @@ class Config(BaseModel):
     base_url: str = "https://api.openai.com/v1"
     api_key: str = "disabled"  # 灵积API-Key
     system_prompt: str = "You are a smart assistant."  # 默认系统提示词
+    unsafe_system_prompt: str | None = None
     models: Mapping[str, Model] = {  # 模型价格
         "gpt-4o-mini": Model(
             name="GPT-4o-mini",

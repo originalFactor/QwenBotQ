@@ -38,6 +38,7 @@ from openai.types.chat import ChatCompletionChunk
 
 # Nonebot imports
 from nonebot import logger, on_message, on_command
+from nonebot.rule import to_me
 from nonebot.params import EventPlainText
 from nonebot.adapters.onebot.v11 import Bot, MessageEvent, MessageSegment
 from nonebot.adapters.onebot.v11.event import Reply
@@ -72,7 +73,7 @@ def tokenize(model: str, messages: Sequence[Mapping[str, str]]) -> int:
 
 
 # 大模型回复匹配器
-LLMMatcher = on_message(strict_to_me, priority=20)
+LLMMatcher = on_message(to_me(), priority=20)
 
 
 @LLMMatcher.handle()
@@ -99,7 +100,13 @@ async def llm(
 
     # 构建历史消息
     user.system_prompt = (
-        config.system_prompt if user.system_prompt == "DEFAULT" else user.system_prompt
+        config.system_prompt
+        if user.system_prompt == "DEFAULT"
+        else (
+            (config.unsafe_system_prompt or config.system_prompt)
+            if user.system_prompt == "UNSAFE"
+            else user.system_prompt
+        )
     )
     messages = [{"role": "system", "content": user.system_prompt + SYSPROMPT_APPEND}]
     if replies:
@@ -121,10 +128,12 @@ async def llm(
     # 成本控制
     if (
         ceil(
-            usage := ceil(
-                tokenize(user.model, messages)
-                if (_ := config.models[user.model].input_cost)
-                else 0
+            (
+                usage := ceil(
+                    tokenize(user.model, messages)
+                    if (_ := config.models[user.model].input_cost)
+                    else 0
+                )
             )
             / 1000
             * _
@@ -193,18 +202,19 @@ async def llm(
                 continue
             # 发送段落
             for para in paras[:-1]:
-                res: dict = await LLMMatcher.send(
-                    MessageSegment.reply(reply_id) + para.replace("\\~", "").strip(),
-                )
-                reply_id = int(res.get("message_id", reply_id))
+                if p := para.replace("\\~", "").strip():
+                    res: dict = await LLMMatcher.send(
+                        MessageSegment.reply(reply_id) + p,
+                    )
+                    reply_id = int(res.get("message_id", reply_id))
 
             # 删除段落
             received = paras[-1]
             received_len = len(received)
 
-        if received:
+        if r := received.replace("\\~", "").strip():
             res = await LLMMatcher.send(
-                MessageSegment.reply(reply_id) + received.replace("\\~", "").strip(),
+                MessageSegment.reply(reply_id) + r,
             )
             reply_id = int(res.get("message_id", reply_id))
 
