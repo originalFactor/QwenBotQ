@@ -55,6 +55,9 @@ class Mongo:
         database = getattr(cls.client(), config.mongo_db)
         await init_beanie(database, document_models=document_models)
 
+class SessionMemory(Document):
+    id: Indexed(str) # type: ignore
+    memory: str
 
 class Binded(BaseModel):
     "绑定用户"

@@ -18,6 +18,10 @@
 "QwenBotQ 主要部分"
 
 from importlib import import_module
+from ssl import PROTOCOL_TLS_CLIENT
+
+from truststore import SSLContext
+from httpx import AsyncClient
 from nonebot import get_plugin_config, require
 from nonebot.plugin import PluginMetadata
 from .config_model import Config
@@ -33,6 +37,7 @@ __plugin_meta__ = PluginMetadata(
 )
 
 config = get_plugin_config(Config)
+httpClient = AsyncClient(verify=SSLContext(PROTOCOL_TLS_CLIENT))
 
 if config.focus or config.auto_update:
     require("nonebot_plugin_apscheduler")
@@ -44,8 +49,7 @@ import_module(".usersystem", __package__)
 import_module(".binding", __package__)
 import_module(".group", __package__)
 
-if config.api_key != "disabled":
-    import_module(".ai", __package__)
+import_module(".ai", __package__)
 
 if config.focus:
     import_module(".bilinotice", __package__)

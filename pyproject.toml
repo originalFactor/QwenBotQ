@@ -8,7 +8,7 @@ readme = "README.md"
 package-mode = false
 
 [tool.poetry.dependencies]
-python = ">=3.9, <4.0"
+python = ">=3.10, <3.14"
 nonebot2 = "^2.4.2"
 nonebot-adapter-onebot = "^2.4.6"
 motor = "^3.7.1"
@@ -17,7 +17,7 @@ aiohttp = "^3.11.16"
 nonebot-plugin-apscheduler = "^0.5.0"
 aiodns = "^3.2.0"
 openai = "^2.6.1"
-tiktoken = "^0.8.0"
+truststore = "^0.10.4"
 
 [tool.poetry.group.dev.dependencies]
 nb-cli = "^1.4.2"

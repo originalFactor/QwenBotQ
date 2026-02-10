@@ -21,17 +21,20 @@ from typing import Sequence, Mapping, Optional
 from pydantic import BaseModel
 from nonebot import get_driver
 
+class LLMApi(BaseModel):
+    base_uri: str
+    token: str
 
 class Model(BaseModel):
     "模型"
 
+    api_id: str
     name: str = "Unknown"
     input_cost: float = 0
     output_cost: float = 0
     context_length: Optional[int] = None
     max_tokens: Optional[int] = None
     detail: str = ""
-
 
 class Focus(BaseModel):
     "订阅"
@@ -64,23 +67,14 @@ class Config(BaseModel):
     mongo_db: str = "aioBot"  # 数据库名
 
     # 大模型
-    base_url: str = "https://api.openai.com/v1"
-    api_key: str = "disabled"  # 灵积API-Key
+    apis: dict[str, LLMApi]
     system_prompt: str = "You are a smart assistant."  # 默认系统提示词
     unsafe_system_prompt: str | None = None
-    models: Mapping[str, Model] = {  # 模型价格
-        "gpt-4o-mini": Model(
-            name="GPT-4o-mini",
-            input_cost=0.11,
-            output_cost=0.44,
-            context_length=128000,
-            max_tokens=16000,
-            detail="OpenAI 最具性价比的模型",
-        )
-    }
+    models: dict[str, Model]
     set_prompt_cost: int = 1  # 设置提示词价格
-    fast_tokenize: bool = True  # 是否使用快速分词器
     display_cost_by_default: bool = True  # 是否默认显示消耗积分
+    search_key: str | None = None
+    ai_vip_groups: list[int] = []
 
     # 个人中心
     daily_sign_max_coins: int = 50  # 每日签到最大获得积分数
