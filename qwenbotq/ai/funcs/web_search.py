@@ -4,7 +4,7 @@ WEB_SEARCH_PROMPT = {
     "type": "function",
     "function": {
         "name": "web_search",
-        "description": "从互联网搜索资料",
+        "description": "从互联网搜索资料，仅在绝对必须时使用。返回标题、摘要和发布时间。",
         "parameters": {
             "type": "object",
             "properties": {
@@ -14,38 +14,19 @@ WEB_SEARCH_PROMPT = {
                 },
                 "freshness": {
                     "type": "string",
-                    "description": "搜索指定时间范围内的网页。\n"
-                    "可填值：\n"
-                    "- noLimit，不限（默认）\n"
-                    "- oneDay，一天内\n"
-                    "- oneWeek，一周内\n"
-                    "- oneMonth，一个月内\n"
-                    "- oneYear，一年内\n"
-                    '- YYYY-MM-DD..YYYY-MM-DD，搜索日期范围，例如："2025-01-01..2025-04-06"\n'
-                    '- YYYY-MM-DD，搜索指定日期，例如："2025-04-06"\n'
-                    "推荐使用“noLimit”。搜索算法会自动进行时间范围的改写，效果更佳。如果指定时间范围，很有可能出现时间范围内没有相关网页的情况，导致找不到搜索结果。",
+                    "description": "时间范围。可填`noLimit`（默认）|`oneDay`|`oneWeek`|`oneMonth`|`oneYear`|`YYYY-MM-DD..YYYY-MM-DD`",
                 },
                 "include": {
                     "type": "string",
-                    "description": "指定搜索的网站范围。多个域名使用|或,分隔，最多不能超过100个\n"
-                    "可填值：\n"
-                    "- 根域名\n"
-                    "- 子域名\n"
-                    "例如：qq.com|m.163.com",
+                    "description": "限制范围。多个域名使用|或,分隔，最多不能超过100个",
                 },
                 "exclude": {
                     "type": "string",
-                    "description": "排除搜索的网站范围。多个域名使用|或,分隔，最多不能超过100个\n"
-                    "可填值：\n"
-                    "- 根域名\n"
-                    "- 子域名\n"
-                    "例如：qq.com|m.163.com",
+                    "description": "排除范围。多个域名使用|或,分隔，最多不能超过100个",
                 },
                 "count": {
                     "type": "string",
-                    "description": "返回结果的条数（实际返回结果数量可能会小于count指定的数量）。\n"
-                    "- 可填范围：1-50，最大单次搜索返回50条\n"
-                    "- 默认为10",
+                    "description": "结果数量限制，默认为10，最大不能超过50",
                 },
             },
             "required": ["query"],
@@ -61,12 +42,11 @@ async def web_search(
     exclude: str = "",
     count: int = 10,
 ) -> list[dict[str, str]]:
-    if not config.search_key:
-        return []
+    assert config.ai and config.ai.tools.bocha
+    bocha = config.ai.tools.bocha
 
-    endpoint = "https://api.bocha.cn/v1/web-search"
     headers = {
-        "Authorization": f"Bearer {config.search_key}",
+        "Authorization": f"Bearer {bocha.token}",
         "Content-Type": "application/json",
     }
     payload = {
@@ -78,7 +58,7 @@ async def web_search(
         "count": count,
     }
 
-    resp = await httpClient.post(url=endpoint, headers=headers, json=payload)
+    resp = await httpClient.post(url=bocha.endpoint, headers=headers, json=payload)
     resp.raise_for_status()
     data = resp.json()["data"]["webPages"]["value"]
 

@@ -21,46 +21,45 @@
 
 import asyncio
 from random import random
-from typing import Annotated, List, Optional, Union, Tuple, Any
-from collections.abc import Sequence
-from datetime import date
+from typing import Annotated
+from collections.abc import Callable, Awaitable
 
-from nonebot.adapters.onebot.v11 import Bot, MessageEvent, Message
-from nonebot.adapters.onebot.v11.event import Reply
 from nonebot.matcher import Matcher
-from nonebot.params import CommandArg, Depends, EventMessage
-from nonebot.rule import Rule
+from nonebot.params import Depends
+from nonebot.adapters.onebot.v11 import Bot, MessageEvent, Message, GroupMessageEvent
+from nonebot.adapters.onebot.v11.event import Reply
 
-from .database import User
+from . import config
+from .database import User, get_vip
 
 
-async def get_user(_id: str, nick: Optional[str], bot: Bot):
+async def get_user(_id: str, bot: Bot):
     "获取用户"
     user = await User.get(_id)
     if not user:
         user = User(id=_id)
         await user.insert()
-    await user.set(
-        {User.nick: (await bot.get_stranger_info(user_id=int(_id)))["nickname"]}
-    )
     if user.bind_power == 0:
-        await user.set({"bind_power": random() * 2})
-    if nick:
-        user.nick = nick
+        user.bind_power = random() * 2
+        await user.save()
     return user
 
 
-def require(
-    cost_permission: int = 0, cost_coins: int = 0, only_check: bool = False
-) -> User:
+def require(cost_coins: int = 0, only_check: bool = False, superuser: bool = False, vip: bool = False) -> User:
     "用于获取发送用户的权限函数，可指定最小权限等级以及消耗积分数量"
 
     async def _require(event: MessageEvent, matcher: Matcher, bot: Bot):
-        user = await get_user(event.get_user_id(), event.sender.nickname, bot)
-        if user.permission < cost_permission:
-            await matcher.finish(
-                f"\n您的权限不足，至少需要{cost_permission}。", at_sender=True
-            )
+        user = await get_user(event.get_user_id(), bot)
+
+        if superuser and not user.id in config.supermgr_ids:
+            await matcher.finish("\n您没有权限使用此功能！", at_sender=True)
+
+        if vip:
+            session_id = get_session_id(event)
+            vip_info = await get_vip(session_id)
+            if not vip_info[0]:
+                await matcher.finish("\n该功能需要对话开通 AI VIP！", at_sender=True)
+
         if cost_coins:
             if user.coins < cost_coins:
                 await matcher.finish(
@@ -71,66 +70,14 @@ def require(
                 await matcher.send(
                     f"\n您已被扣除所需的{cost_coins}点积分！", at_sender=True
                 )
-                await asyncio.sleep(0.5)
+                await asyncio.sleep(1)
         return user
 
     return Depends(_require, validate=True)
 
 
-async def _arg_plain_text(args: Annotated[Message, CommandArg()]) -> str:
-    "获取命令纯文本参数"
-    return args.extract_plain_text().strip()
 
-
-arg_plain_text = Depends(_arg_plain_text, validate=True)
-
-
-def arg(tp: Union[type, Sequence[type]], least: int = 0) -> Any:
-    "获取至少least个tp类型的命令参数"
-
-    async def _arg(matcher: Matcher, arg: Annotated[str, arg_plain_text]):
-        if isinstance(tp, Sequence):
-            args = arg.strip().split(maxsplit=len(tp))
-            try:
-                return tuple(
-                    [
-                        (boolize if tp[i] == bool else tp[i])(v)
-                        for i, v in enumerate(args)
-                    ]
-                )
-            except ValueError:
-                await matcher.finish(f"输入参数类型不正确。", at_sender=True)
-        try:
-            _tp = boolize if tp == bool else tp
-            if len(x := list(map(_tp, arg.strip().split()))) >= least:
-                return x
-            await matcher.finish(f"请输入至少{least}个{tp}类型参数！", at_sender=True)
-        except ValueError:
-            await matcher.finish(f"\n请输入合法的{tp}类型参数！", at_sender=True)
-
-    return Depends(_arg, validate=True)
-
-
-def mentioned(least: int = 0) -> List[User]:
-    "获取至少least个被提及的用户"
-
-    async def _mentioned(
-        matcher: Matcher,
-        bot: Bot,
-        msg: Annotated[Message, EventMessage()],
-        args: Annotated[Sequence[str], arg(str)],
-    ):
-        mentioned_users = [
-            await get_user(_.data["qq"], _.data.get("name"), bot) for _ in msg["at"]
-        ] + [await get_user(_[1:], None, bot) for _ in args if _.startswith("@")]
-        if len(mentioned_users) >= least:
-            return mentioned_users
-        await matcher.finish(f"\n该功能至少要提及{least}个用户。", at_sender=True)
-
-    return Depends(_mentioned, validate=True)
-
-
-def reply(required: bool = False) -> Optional[Reply]:
+def reply(required: bool = False) -> Reply | None:
     "获取单条回复信息"
 
     async def _reply(matcher: Matcher, event: MessageEvent):
@@ -141,29 +88,9 @@ def reply(required: bool = False) -> Optional[Reply]:
     return Depends(_reply, validate=True)
 
 
-@Rule
-async def strict_to_me(event: MessageEvent) -> bool:
-    "剔除掉回复的隐藏@后的提及我"
-
-    if event.to_me and (event.message_type == "private" or not event.reply):
-        return True
-
-    self_id = str(event.self_id)
-
-    for segment in event.message["at"]:
-        if segment.data["qq"] == self_id:
-            return True
-
-    plaintext = event.message.extract_plain_text()
-    if f"@{self_id}" in plaintext:
-        return True
-
-    return False
-
-
 async def _get_flow_replies(
-    replied: Annotated[Optional[Reply], reply()], bot: Bot
-) -> Optional[List[Reply]]:
+    replied: Annotated[Reply | None, reply()], bot: Bot
+) -> list[Reply] | None:
     "获取回复链"
     if not replied:
         return None
@@ -180,9 +107,42 @@ async def _get_flow_replies(
 get_flow_replies = Depends(_get_flow_replies, validate=True)
 
 
-def strOpt(i: str | None) -> str:
-    return i if i else ""
-
-
 def boolize(i: str | None) -> bool:
     return i.strip()[0].lower() in ("t", "y", "是", "真", "启") if i else False
+
+
+def get_session_id(event: MessageEvent) -> str:
+    "获取会话ID"
+    if isinstance(event, GroupMessageEvent):
+        return f"g{event.group_id}"
+    return f"u{event.user_id}"
+
+
+session_id_depends = Depends(get_session_id, validate=True)
+
+
+async def get_nick(session_id: str, user_id: str, bot: Bot) -> str:
+    "获取昵称"
+    if session_id.startswith("g"):
+        group_id = int(session_id[1:])
+        member_info = await bot.get_group_member_info(
+            group_id=group_id, user_id=int(user_id)
+        )
+        if member_info:
+            return member_info["card"] or member_info["nickname"]
+
+    user_info = await bot.get_stranger_info(user_id=int(user_id))
+    return user_info["nickname"]
+
+
+def nick_getter() -> Callable[[str], Awaitable[str]]:
+    async def _nick_getter(
+        session_id: Annotated[str, session_id_depends],
+        bot: Bot,
+    ) -> Callable[[str], Awaitable[str]]:
+        async def _get_nick(user_id: str) -> str:
+            return await get_nick(session_id, user_id, bot)
+
+        return _get_nick
+
+    return Depends(_nick_getter, validate=True)

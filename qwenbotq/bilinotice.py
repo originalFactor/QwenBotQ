@@ -18,22 +18,23 @@
 "BiliBili动态提醒服务"
 
 from http import HTTPStatus
-from typing import Any, Dict, List, Mapping, Optional, Sequence, Union
+from typing import Any
+from collections.abc import Sequence, Mapping
 from urllib.error import HTTPError
 from asyncio import sleep
 from datetime import datetime, timedelta
+
 from aiohttp import ClientSession
-from nonebot import get_driver, get_bot
+from nonebot import get_bot
 from nonebot.log import logger
 from nonebot.adapters.onebot.v11 import Bot, Message, MessageSegment
 from nonebot_plugin_apscheduler import scheduler
-from . import config
+
+from . import config, driver
 from .database import SubscribeStatus
 
 
-async def notice(
-    message: Union[str, Message], users: Sequence[str], groups: Sequence[str]
-):
+async def notice(message: Message | str, users: Sequence[str], groups: Sequence[str]):
     "消息提醒"
     bot: Bot = get_bot()  # type: ignore
     for user in users:
@@ -42,14 +43,14 @@ async def notice(
         await bot.send_msg(group_id=int(group), message=message)
 
 
-VALID_GET_PARAM_TYPES = Union[str, int, float]
+VALID_GET_PARAM_TYPES = float | int | str
 
 
 async def api_request(
     session: ClientSession,
     endpoint: str,
     params: Mapping[str, VALID_GET_PARAM_TYPES | Sequence[VALID_GET_PARAM_TYPES]],
-) -> Optional[Dict[str, Any]]:
+) -> dict | None:
     "请求API接口"
     try:
         async with session.get(endpoint, params=params) as resp:
@@ -69,7 +70,7 @@ async def api_request(
     return response
 
 
-async def parse_item(item: Mapping[str, Any]) -> Optional[Union[str, Message]]:
+async def parse_item(item: Mapping[str, Any]) -> Message | str | None:
     "渲染动态"
     _type = item["type"]
     module = item["modules"]
@@ -173,10 +174,10 @@ async def check_and_push(session: ClientSession):
     logger.info("动态和直播推送检查完毕")
 
 
-pool: List[ClientSession] = []
+pool: list[ClientSession] = []
 
 
-@get_driver().on_startup
+@driver.on_startup
 async def on_startup():
     "注册计划任务"
     if config.focus:
@@ -199,7 +200,7 @@ async def on_startup():
         )
 
 
-@get_driver().on_shutdown
+@driver.on_shutdown
 async def on_shutdown():
     "关闭客户端session"
     for session in pool:

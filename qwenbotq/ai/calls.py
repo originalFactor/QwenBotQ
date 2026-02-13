@@ -4,13 +4,13 @@ from json import loads, dumps
 from openai.types.chat.chat_completion_chunk import ChoiceDeltaToolCall
 
 from .. import config
-from .funcs import web_search, update_memory
+from .funcs import web_search
 
 
 def get_tool_prompts() -> list[dict]:
-    tools = [update_memory.UPDATE_MEMORY_PROMPT]
+    tools = []
 
-    if config.search_key:
+    if config.ai and config.ai.tools.bocha:
         tools.append(web_search.WEB_SEARCH_PROMPT)
 
     return tools
@@ -38,7 +38,7 @@ def calling_vacumm(cache: dict, delta: Iterable[ChoiceDeltaToolCall]) -> None:
                 cache[chunk.index]["function"]["arguments"] += function.arguments
 
 
-async def process_calls(calls: Iterable[dict], session_id: str) -> list[dict[str, str]]:
+async def process_calls(calls: Iterable[dict]) -> list[dict[str, str]]:
     r = []
     for call in calls:
         name = call["function"]["name"]
@@ -49,8 +49,6 @@ async def process_calls(calls: Iterable[dict], session_id: str) -> list[dict[str
         match name:
             case "web_search":
                 result = dumps(await web_search.web_search(**arguments))
-            case "update_memory":
-                result = await update_memory.update_memory(session_id, **arguments)
             case _:
                 result = "函数不存在"
 

@@ -3,22 +3,30 @@ from collections.abc import Sequence, Mapping
 from nonebot.adapters.onebot.v11.event import Reply
 
 from .. import config
+from ..database import Agent
+from ..config_model.ai import AgentLike
+
+
+async def get_sysprompt(id: str) -> Agent | AgentLike | None:
+    "获取系统提示词"
+
+    assert config.ai
+
+    if id == "DEFAULT":
+        return config.ai.default_prompts.default.model_copy()
+    if id == "UNSAFE":
+        return (
+            config.ai.default_prompts.unsafe or config.ai.default_prompts.default
+        ).model_copy()
+
+    agent = await Agent.get(id)
+    if agent:
+        return agent
+    return None
 
 
 def tokenize(messages: Sequence[Mapping[str, str]]) -> int:
     return sum(len(_["content"]) + 4 for _ in messages)
-
-
-def get_sysprompt(user: str) -> str:
-    return (
-        config.system_prompt
-        if user == "DEFAULT"
-        else (
-            (config.unsafe_system_prompt or config.system_prompt)
-            if user == "UNSAFE"
-            else user
-        )
-    )
 
 
 def construct_history(replies: Sequence[Reply], self_id: int) -> list[dict[str, str]]:

@@ -3,7 +3,7 @@ name = "qwenbotq"
 version = "0.1.0"
 description = "A smart QQ bot based on Nonebot2 and Onebot v11."
 authors = ["originalFactor"]
-license = "GPL-v3"
+license = "MIT"
 readme = "README.md"
 package-mode = false
 
@@ -18,9 +18,15 @@ nonebot-plugin-apscheduler = "^0.5.0"
 aiodns = "^3.2.0"
 openai = "^2.6.1"
 truststore = "^0.10.4"
+mem0ai = "^1.0.3"
+chromadb = "^1.5.0"
+nonebot-plugin-alconna = ">=0.53.0"
 
 [tool.poetry.group.dev.dependencies]
 nb-cli = "^1.4.2"
+hypothesis = "^6.0.0"
+pytest = "^8.0.0"
+black = "^26.1.0"
 
 [build-system]
 requires = ["poetry-core"]
