@@ -1,3 +1,8 @@
+# Copyright (c) 2026 originalFactor
+#
+# This software is released under the MIT License.
+# https://opensource.org/licenses/MIT
+
 "订阅模型"
 
 from pydantic import Field

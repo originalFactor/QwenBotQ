@@ -1,3 +1,8 @@
+# Copyright (c) 2026 originalFactor
+#
+# This software is released under the MIT License.
+# https://opensource.org/licenses/MIT
+
 from collections.abc import Sequence, Mapping
 
 from nonebot.adapters.onebot.v11.event import Reply

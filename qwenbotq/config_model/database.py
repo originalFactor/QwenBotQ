@@ -1,3 +1,8 @@
+# Copyright (c) 2026 originalFactor
+#
+# This software is released under the MIT License.
+# https://opensource.org/licenses/MIT
+
 "MongoDB 数据库配置模型"
 
 from pydantic import BaseModel

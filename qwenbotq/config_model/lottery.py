@@ -1,3 +1,8 @@
+# Copyright (c) 2026 originalFactor
+#
+# This software is released under the MIT License.
+# https://opensource.org/licenses/MIT
+
 "抽奖配置模型"
 
 from pydantic import BaseModel

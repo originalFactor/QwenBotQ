@@ -1,3 +1,8 @@
+# Copyright (c) 2026 originalFactor
+#
+# This software is released under the MIT License.
+# https://opensource.org/licenses/MIT
+
 "抽奖数据模型"
 
 from typing import Annotated

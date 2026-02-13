@@ -1,19 +1,8 @@
-# Copyright (C) 2024 OriginalFactor
+# Copyright (c) 2026 originalFactor
 #
-# This file is part of QwenBotQ.
-#
-# QwenBotQ is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# QwenBotQ is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with QwenBotQ.  If not, see <https://www.gnu.org/licenses/>.
+# This software is released under the MIT License.
+# https://opensource.org/licenses/MIT
+
 
 "AI助手模块"
 
@@ -174,9 +163,7 @@ ModelChangeMatcher = on_alconna(model_cmd, block=True)
 
 
 @ModelChangeMatcher.handle()
-async def model_change(
-    user: Annotated[User, require()], model_id: Match[str]
-):
+async def model_change(user: Annotated[User, require()], model_id: Match[str]):
     "更改模型"
 
     assert config.ai
@@ -277,8 +264,12 @@ add_agent_cmd = Alconna(
     "添加智能体",
     Args["agent_name?", str]["prompt?", str],
     Option("--temperature|-t", Args["temperature", float], help_text="温度参数"),
-    Option("--frequency_penalty|-f", Args["frequency_penalty", float], help_text="频率惩罚"),
-    Option("--presence_penalty|-p", Args["presence_penalty", float], help_text="存在惩罚"),
+    Option(
+        "--frequency_penalty|-f", Args["frequency_penalty", float], help_text="频率惩罚"
+    ),
+    Option(
+        "--presence_penalty|-p", Args["presence_penalty", float], help_text="存在惩罚"
+    ),
     Option("--max_tokens|-m", Args["max_tokens", int], help_text="最大输出长度"),
 )
 AddAgentMatcher = on_alconna(add_agent_cmd, block=True)
@@ -364,8 +355,12 @@ edit_agent_cmd = Alconna(
     Args["agent_name?", str],
     Option("--prompt", Args["prompt", str], help_text="提示词"),
     Option("--temperature|-t", Args["temperature", float], help_text="温度参数"),
-    Option("--frequency_penalty|-f", Args["frequency_penalty", float], help_text="频率惩罚"),
-    Option("--presence_penalty|-p", Args["presence_penalty", float], help_text="存在惩罚"),
+    Option(
+        "--frequency_penalty|-f", Args["frequency_penalty", float], help_text="频率惩罚"
+    ),
+    Option(
+        "--presence_penalty|-p", Args["presence_penalty", float], help_text="存在惩罚"
+    ),
     Option("--max_tokens|-m", Args["max_tokens", int], help_text="最大输出长度"),
 )
 EditAgentMatcher = on_alconna(edit_agent_cmd, block=True)

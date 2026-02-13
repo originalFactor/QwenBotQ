@@ -1,19 +1,8 @@
-# Copyright (C) 2024 originalFactor
+# Copyright (c) 2026 originalFactor
 #
-# This file is part of QwenBotQ.
-#
-# QwenBotQ is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# QwenBotQ is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with QwenBotQ.  If not, see <https://www.gnu.org/licenses/>.
+# This software is released under the MIT License.
+# https://opensource.org/licenses/MIT
+
 
 """
 供主体使用的Bot实用函数
@@ -45,7 +34,12 @@ async def get_user(_id: str, bot: Bot):
     return user
 
 
-def require(cost_coins: int = 0, only_check: bool = False, superuser: bool = False, vip: bool = False) -> User:
+def require(
+    cost_coins: int = 0,
+    only_check: bool = False,
+    superuser: bool = False,
+    vip: bool = False,
+) -> User:
     "用于获取发送用户的权限函数，可指定最小权限等级以及消耗积分数量"
 
     async def _require(event: MessageEvent, matcher: Matcher, bot: Bot):
@@ -74,7 +68,6 @@ def require(cost_coins: int = 0, only_check: bool = False, superuser: bool = Fal
         return user
 
     return Depends(_require, validate=True)
-
 
 
 def reply(required: bool = False) -> Reply | None:

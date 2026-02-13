@@ -1,19 +1,8 @@
-# Copyright (C) 2024 originalFactor
+# Copyright (c) 2026 originalFactor
 #
-# This file is part of QwenBotQ.
-#
-# QwenBotQ is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# QwenBotQ is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with QwenBotQ.  If not, see <https://www.gnu.org/licenses/>.
+# This software is released under the MIT License.
+# https://opensource.org/licenses/MIT
+
 
 "QwenBotQ 主要部分"
 
@@ -83,17 +72,10 @@ if config.ai:
         "  修改智能体 <名称> [选项] — 修改智能体属性（管理员）\n"
     )
     if config.ai.memory:
-        HELP_TEXT += (
-            "  清除记忆 — 清除当前会话记忆\n"
-            "  查看记忆 — 查看当前会话记忆\n"
-        )
+        HELP_TEXT += "  清除记忆 — 清除当前会话记忆\n" "  查看记忆 — 查看当前会话记忆\n"
 
 if config.focus:
-    HELP_TEXT += (
-        "\n"
-        "【订阅】\n"
-        "  相关订阅命令请查看文档\n"
-    )
+    HELP_TEXT += "\n" "【订阅】\n" "  相关订阅命令请查看文档\n"
 
 if config.lottery:
     HELP_TEXT += (

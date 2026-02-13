@@ -1,3 +1,8 @@
+# Copyright (c) 2026 originalFactor
+#
+# This software is released under the MIT License.
+# https://opensource.org/licenses/MIT
+
 from ... import config, httpClient
 
 WEB_SEARCH_PROMPT = {
