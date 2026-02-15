@@ -111,12 +111,13 @@ async def get_nick(session_id: str, user_id: str, bot: Bot) -> str:
     "获取昵称"
     if session_id.startswith("g"):
         group_id = int(session_id[1:])
-        member_info = await bot.get_group_member_info(
-            group_id=group_id, user_id=int(user_id)
-        )
-        if member_info:
+        try:
+            member_info = await bot.get_group_member_info(
+                group_id=group_id, user_id=int(user_id)
+            )
             return member_info["card"] or member_info["nickname"]
-
+        except:
+            pass
     user_info = await bot.get_stranger_info(user_id=int(user_id))
     return user_info["nickname"]
 

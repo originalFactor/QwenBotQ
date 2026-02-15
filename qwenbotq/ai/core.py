@@ -38,7 +38,7 @@ async def chat(
         # 创建请求
         response: AsyncStream[ChatCompletionChunk] = (
             await openai.chat.completions.create(
-                model=model,
+                model=model_obj.model_id,
                 messages=messages,  # type: ignore
                 tools=tools,  # type: ignore
                 max_tokens=max_tokens or model_obj.max_tokens,

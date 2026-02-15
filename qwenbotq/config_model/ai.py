@@ -27,6 +27,7 @@ class LLMModelConfig(BaseModel):
     "LLM Model"
 
     api_id: str
+    model_id: str
     name: str = "Unknown"
     context_length: int | None = None
     max_tokens: int | None = None
@@ -63,12 +64,21 @@ class MemoryModelConfig(BaseModel):
     dimensions: int | None = None
 
 
+class MemoryQdrantConfig(BaseModel):
+    "Qdrant向量数据库配置"
+
+    collection_name: str = "aioBotMemories"
+    host: str = "127.0.0.1"
+    port: int = 6333
+
+
 class MemoryConfig(BaseModel):
     "记忆配置"
 
     llm: MemoryModelConfig
     reranker: MemoryModelConfig | None = None
     embedder: MemoryModelConfig
+    qdrant: MemoryQdrantConfig = MemoryQdrantConfig()
     threshold: float = 0.8
 
 

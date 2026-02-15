@@ -13,7 +13,15 @@ assert config.ai and config.ai.memory
 memconf = config.ai.memory
 
 conf = {
-    "vector_store": {"provider": "chroma", "config": {"path": "./db"}},
+    "vector_store": {
+        "provider": "qdrant",
+        "config": {
+            "collection_name": memconf.qdrant.collection_name,
+            "host": memconf.qdrant.host,
+            "port": memconf.qdrant.port,
+            "embedding_model_dims": memconf.embedder.dimensions,
+        },
+    },
     "llm": {
         "provider": "openai",
         "config": {
