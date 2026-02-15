@@ -41,7 +41,7 @@ LLMMatcher = on_message(to_me(), priority=20)
 
 @LLMMatcher.handle()
 async def llm(
-    user: Annotated[User, require(vip=True)],
+    user: Annotated[User, require()],
     replies: Annotated[Sequence[Reply] | None, get_flow_replies],
     bot: Bot,
     event: MessageEvent,
@@ -52,6 +52,8 @@ async def llm(
 
     session_id = get_session_id(event)
 
+    logger.debug(f"Successfully entered llm function with session_id {session_id}")
+
     # 检查模型是否可用
     models = config.ai.models
     if user.model not in models.keys():
@@ -60,11 +62,15 @@ async def llm(
             f"\n您所选模型已下线，已自动为您切换可用的 {models[user.model].name} 模型",
             at_sender=True,
         )
+    
+    logger.debug(f"Model check done with {user.model}")
 
     # 检查是否有提示词
     prompt = event.get_plaintext().strip()
     if not prompt:
         await LLMMatcher.finish("\n虽然你啥也没说，但是我记住你了！", at_sender=True)
+
+    logger.debug(f"Prompt check done!")
 
     # 构建历史消息
     system_prompt = await get_sysprompt(user.system_prompt)
@@ -84,21 +90,29 @@ async def llm(
     model = models[user.model]
     predicted_tokens = tokenize(messages)
 
+    logger.debug(f"History construct done!")
+
     # 检查上下文长度是否足够
     if predicted_tokens > (model.context_length or float("inf")):
         await LLMMatcher.finish(
             f"\n上下文长度 {predicted_tokens} tokens 超过模型能够处理的最长长度 {model.context_length} tokens",
             at_sender=True,
         )
+    
+    logger.debug(f"Context length check done!")
 
+    # 搜索记忆
     if config.ai.memory:
         from .memory import get_memprompt
 
         system_prompt.prompt += "\n" + await get_memprompt(session_id, prompt)
+    
+        logger.debug(f"Memory search done!")
 
     # 流式回复track
     reply_id = event.message_id
     msgs = []
+    para_no = 1
 
     try:
         async for paragraph in chat(
@@ -110,14 +124,19 @@ async def llm(
             system_prompt.presence_penalty,
             system_prompt.max_tokens,
         ):
+            logger.debug(f"Sending paragraph {para_no} with reply_id {reply_id}.")
             data = await LLMMatcher.send(MessageSegment.reply(reply_id) + paragraph[0])
             reply_id = data["message_id"]
             msgs = paragraph[1]
+            para_no += 1
+        
+        logger.debug(f"Reply done!")
 
         if config.ai.memory:
             from .memory import add_memory
 
             await add_memory(session_id, msgs[1:])
+            logger.debug(f"Memory done!")
 
         logger.debug(dumps(msgs, ensure_ascii=False, indent=2))
 
@@ -126,7 +145,7 @@ async def llm(
     except HTTPError as e:
         await LLMMatcher.finish(MessageSegment.reply(reply_id) + f"上游异常：{e}")
 
-    LLMMatcher.finish(MessageSegment.reply(reply_id) + f"内部异常。")
+    await LLMMatcher.finish(MessageSegment.reply(reply_id) + f"内部异常。")
 
 
 # 设置系统提示词匹配器

@@ -1,4 +1,3 @@
-poetry lock
-poetry install
+@echo off
 poetry run nb run
 pause

@@ -38,7 +38,6 @@ def require(
     cost_coins: int = 0,
     only_check: bool = False,
     superuser: bool = False,
-    vip: bool = False,
 ) -> User:
     "用于获取发送用户的权限函数，可指定最小权限等级以及消耗积分数量"
 
@@ -47,12 +46,6 @@ def require(
 
         if superuser and not user.id in config.supermgr_ids:
             await matcher.finish("\n您没有权限使用此功能！", at_sender=True)
-
-        if vip:
-            session_id = get_session_id(event)
-            vip_info = await get_vip(session_id)
-            if not vip_info[0]:
-                await matcher.finish("\n该功能需要对话开通 AI VIP！", at_sender=True)
 
         if cost_coins:
             if user.coins < cost_coins:
