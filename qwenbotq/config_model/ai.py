@@ -32,6 +32,7 @@ class LLMModelConfig(BaseModel):
     context_length: int | None = None
     max_tokens: int | None = None
     detail: str = ""
+    dimensions: int | None = None
 
 
 class BoChaAPIConfig(BaseModel):
@@ -56,14 +57,6 @@ class DefaultPromptsConfig(BaseModel):
     unsafe: AgentLike | None = None
 
 
-class MemoryModelConfig(BaseModel):
-    "记忆嵌入器配置"
-
-    api_id: str
-    model: str
-    dimensions: int | None = None
-
-
 class MemoryQdrantConfig(BaseModel):
     "Qdrant向量数据库配置"
 
@@ -75,9 +68,9 @@ class MemoryQdrantConfig(BaseModel):
 class MemoryConfig(BaseModel):
     "记忆配置"
 
-    llm: MemoryModelConfig
-    reranker: MemoryModelConfig | None = None
-    embedder: MemoryModelConfig
+    llm: LLMModelConfig
+    reranker: LLMModelConfig | None = None
+    embedder: LLMModelConfig
     qdrant: MemoryQdrantConfig = MemoryQdrantConfig()
     threshold: float = 0.8
 

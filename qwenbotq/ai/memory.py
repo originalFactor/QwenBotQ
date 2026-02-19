@@ -25,7 +25,7 @@ conf = {
     "llm": {
         "provider": "openai",
         "config": {
-            "model": memconf.llm.model,
+            "model": memconf.llm.model_id,
             "api_key": config.ai.apis[memconf.llm.api_id].token,
             "openai_base_url": config.ai.apis[memconf.llm.api_id].base,
         },
@@ -33,7 +33,7 @@ conf = {
     "embedder": {
         "provider": "openai",
         "config": {
-            "model": memconf.embedder.model,
+            "model": memconf.embedder.model_id,
             "api_key": config.ai.apis[memconf.embedder.api_id].token,
             "embedding_dims": memconf.embedder.dimensions,
             "openai_base_url": config.ai.apis[memconf.embedder.api_id].base,
@@ -46,7 +46,7 @@ if memconf.reranker:
         "provider": "llm_reranker",
         "config": {
             "provider": "openai",
-            "model": memconf.reranker.model,
+            "model": memconf.reranker.model_id,
             "api_key": config.ai.apis[memconf.reranker.api_id].token,
             "openai_base_url": config.ai.apis[memconf.reranker.api_id].base,
         },

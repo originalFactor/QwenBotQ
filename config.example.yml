@@ -1,89 +1,96 @@
 # QwenBotQ 配置文件示例
 # 复制本文件为 config.yml 并填入实际值
+# (*) 为必填项
+# 可选项内有必填项的，只能整个不填或者填写所有必填项，整个不填代表关闭该模块
 
 # ============ AI 大模型配置 ============
 ai:
-  # API 接口列表（可配置多个）
+  # API 接口列表（*）
   apis:
     my_api:
-      token: sk-your-api-token-here
-      base: https://api.example.com/v1
+      token: sk-your-api-token-here # (*)
+      base: https://api.example.com/v1 # (*)
 
-  # 模型列表（引用上方 api_id）
+  # 模型列表（*）
   models:
     my-model:
-      api_id: my_api          # 对应 apis 中的 key
-      name: My Model           # 模型显示名称（默认 "Unknown"）
-      # context_length: 8192   # 上下文长度（可选）
-      # max_tokens: 4096       # 最大输出 token 数（可选）
-      # detail: ""             # 模型描述（可选）
+      api_id: my_api # 对应 apis 中的 key （*）
+      model_id: gpt-3.5-turbo # 模型 ID （*）
+      name: Unknown # 模型显示名称
+      context_length: null # 上下文长度（null为不限制）
+      max_tokens: null # 最大输出 token 数（null为不限制）
+      detail: "" # 模型描述
 
   # 默认提示词配置
   default_prompts:
-    # default 提示词（内置默认值：你是我的人工智能助手，请根据我的要求提供帮助。）
-    # default:
-    #   prompt: "你是我的人工智能助手，请根据我的要求提供帮助。"
-    #   temperature: 1.0
-    #   frequency_penalty: 0.0
-    #   presence_penalty: 0.0
-    #   max_tokens: 2048
+    # default 提示词
+    default:
+      prompt: "你是我的人工智能助手，请根据我的要求提供帮助。" # （*）
+      temperature: 1.0
+      frequency_penalty: 0.0
+      presence_penalty: 0.0
+      max_tokens: null # （null为继承模型配置）
 
-    # unsafe 提示词（可选，用于特殊场景）
-    # unsafe:
-    #   prompt: "你的自定义提示词"
-    #   temperature: 1.0
-    #   frequency_penalty: 1.0
-    #   presence_penalty: 1.0
-    #   max_tokens: 2048
+    # unsafe 提示词
+    unsafe:
+      prompt: "你的自定义提示词" # （*）
+      temperature: 1.0
+      frequency_penalty: 0.0
+      presence_penalty: 0.0
+      max_tokens: null # （null为继承模型配置）
 
   # 工具配置
   tools:
     bocha:
-      token: sk-your-bocha-token-here
-      # endpoint: https://api.bocha.cn/v1/web-search  # 默认值
+      token: sk-your-bocha-token-here # (*）
+      endpoint: https://api.bocha.cn/v1/web-search
 
-  # 记忆（RAG）配置（可选）
+  # 记忆（RAG）配置
   memory:
-    llm:
-      api_id: my_api
-      model: my-model
-    embedder:
-      api_id: my_api
-      model: text-embedding-3-small
-      dimensions: 1536
-    # reranker:                # 重排序模型（可选）
-    #   api_id: my_api
-    #   model: BAAI/bge-reranker-v2-m3
-    # threshold: 0.8           # 记忆匹配阈值（默认 0.8）
+    llm: # （*）
+      api_id: my_api # (*)
+      model_id: my-model # (*)
+    embedder: # （*）
+      api_id: my_api # (*)
+      model_id: text-embedding-3-small # (*)
+      dimensions: 1536 # (*)
+    reranker:
+      api_id: my_api # (*)
+      model_id: BAAI/bge-reranker-v2-m3 # (*)
+    threshold: 0.8 # 记忆匹配阈值
+    qdrant:
+      collection_name: aioBotMemories # 集合名称
+      host: 127.0.0.1 # 主机地址
+      port: 6333 # 端口号
 
 # ============ 数据库配置 ============
 database:
-  uri: mongodb://user:password@127.0.0.1:27017/
-  # name: aioBot              # 数据库名（默认 "aioBot"）
+  uri: mongodb://127.0.0.1:27017/ # 数据库地址
+  name: aioBot # 数据库名
 
 # ============ 积分 / 价格配置 ============
-# price:
-#   daily_sign_max_coins: 50  # 每日签到最大积分
-#   daily_sign_min_coins: 1   # 每日签到最小积分
-#   refresh_price: 1          # 换老婆价格
-#   renew_cost: 1             # 续费老婆价格
+price:
+  daily_sign_max_coins: 50 # 每日签到最大积分
+  daily_sign_min_coins: 1 # 每日签到最小积分
+  refresh_price: 1 # 换老婆价格
+  renew_cost: 1 # 续费老婆价格
 
 # ============ 哔哩哔哩动态订阅配置 ============
-# focus:
-#   sessdata: your-bilibili-sessdata
-#   subscribes:
-#     - uid: "12345678"
-#       groups:
-#         - "群号1"
-#         - "群号2"
-#       users:
-#         - "用户QQ号"
-#   interval:
-#     hours: 1                # 轮询间隔
+focus:
+  sessdata: your-bilibili-sessdata # (*)
+  subscribes: # (*)
+    - uid: "12345678" # (*)
+      groups:
+        - "群号1"
+        - "群号2"
+      users:
+        - "用户QQ号"
+  interval:
+    hours: 1 # 轮询间隔
 
 # ============ 抽奖配置 ============
-# lottery:
-#   groups:                   # 开启抽奖的群号
-#     - "123456789"
-#   ticket_price: 200         # 每注价格
-#   reward_per_match: 200     # 每匹配一位的奖励
+lottery:
+  groups: # 开启抽奖的群号
+    - "123456789"
+  ticket_price: 200 # 每注价格
+  reward_per_match: 200 # 每匹配一位的奖励
