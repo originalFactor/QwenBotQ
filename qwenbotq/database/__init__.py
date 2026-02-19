@@ -10,6 +10,7 @@ from .user import User, apply_bind
 from .vip import get_vip, buy_vip
 from .agents import Agent
 from .lottery import LotteryTicket
+from .bindrequest import BindRequest
 from . import core
 
 
@@ -21,4 +22,5 @@ __all__ = [
     "buy_vip",
     "Agent",
     "LotteryTicket",
+    "BindRequest",
 ]

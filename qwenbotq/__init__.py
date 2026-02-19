@@ -45,6 +45,14 @@ if config.lottery:
 from arclet.alconna import Alconna
 from nonebot_plugin_alconna import on_alconna
 
+
+# 关闭处理
+@driver.on_shutdown
+async def on_shutdown():
+    "关闭全局资源"
+    await httpClient.aclose()
+
+
 HELP_TEXT = (
     "QwenBotQ 命令列表\n"
     "\n"

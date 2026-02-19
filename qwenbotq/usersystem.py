@@ -39,10 +39,10 @@ async def get_information(
 ):
     "用户信息"
     if target.available:
-        user = await get_user(target.result.target, bot)
+        user = await get_user(target.result.target)
     user_nick = await get_nick(get_session_id(event), user.id, bot)
     if user.binded and user.binded.expire > date.today():
-        cp = await get_user(user.binded.id, bot)
+        cp = await get_user(user.binded.id)
         cp_info = (
             await get_nick(get_session_id(event), cp.id, bot),
             cp.id,
@@ -117,7 +117,7 @@ async def transfer(
             "\n用法：转账给 @目标用户 <积分数量>",
             at_sender=True,
         )
-    target_user = await get_user(target.result.target, bot)
+    target_user = await get_user(target.result.target)
     if amount.result < 0:
         await TransferMatcher.finish("\n不允许反向转账积分！", at_sender=True)
     if user.id == target_user.id:

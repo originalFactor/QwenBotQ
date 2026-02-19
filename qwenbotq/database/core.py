@@ -37,7 +37,7 @@ class Mongo:
 
 require_inject: list[Callable[[], None | Awaitable[None]]] = []
 
-from . import subscribe, user, vip, agents, lottery
+from . import subscribe, user, vip, agents, lottery, bindrequest
 
 
 @driver.on_startup
@@ -79,3 +79,11 @@ async def initialize_database():
         r = func()
         if isinstance(r, Awaitable):
             await r
+
+
+@driver.on_shutdown
+async def close_database():
+    "关闭数据库连接"
+    if Mongo._client:
+        Mongo._client.close()
+        logger.info("MongoDB客户端已关闭")

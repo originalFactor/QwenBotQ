@@ -22,7 +22,7 @@ from . import config
 from .database import User, get_vip
 
 
-async def get_user(_id: str, bot: Bot):
+async def get_user(_id: str):
     "获取用户"
     user = await User.get(_id)
     if not user:
@@ -42,7 +42,7 @@ def require(
     "用于获取发送用户的权限函数，可指定最小权限等级以及消耗积分数量"
 
     async def _require(event: MessageEvent, matcher: Matcher, bot: Bot):
-        user = await get_user(event.get_user_id(), bot)
+        user = await get_user(event.get_user_id())
 
         if superuser and not user.id in config.supermgr_ids:
             await matcher.finish("\n您没有权限使用此功能！", at_sender=True)
@@ -133,3 +133,16 @@ def nick_getter() -> Callable[[str], Awaitable[str]]:
         return _get_nick
 
     return Depends(_nick_getter, validate=True)
+
+
+async def send_session(bot: Bot, session_id: str, message: Message | str):
+    if session_id.startswith("g"):
+        await bot.send_group_msg(
+            group_id=int(session_id[1:]),
+            message=message,
+        )
+    else:
+        await bot.send_private_msg(
+            user_id=int(session_id[1:]),
+            message=message,
+        )
