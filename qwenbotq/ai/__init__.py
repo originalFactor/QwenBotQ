@@ -6,18 +6,19 @@
 
 "AI助手模块"
 
-
 # Standard imports
+from re import search
 from json import dumps
-from typing import Annotated, Any
+from time import perf_counter
+from typing import Annotated, Any, NoReturn
 from urllib.error import HTTPError
 from collections.abc import Sequence
 from datetime import date
 
 # Nonebot imports
-from nonebot import on_message
+from nonebot import on_message, on_command
 from nonebot.log import logger
-from nonebot.rule import to_me
+from nonebot.rule import Rule
 from nonebot.adapters.onebot.v11 import (
     Bot,
     MessageEvent,
@@ -30,13 +31,35 @@ from nonebot_plugin_alconna import on_alconna, Match
 # Local imports
 from .. import config
 from ..database import User, get_vip, Agent
-from ..bot_utils import require, get_flow_replies, get_session_id
+from ..bot_utils import require, get_flow_replies, get_session_id, reply_segment
 from .tools import get_sysprompt, construct_history, tokenize
 from .core import chat
+from ..help import HELP_TEXT
+
+HELP_TEXT += """
+【AI 助手】
+@我 <消息> — 与 AI 对话
+设置系统提示词 <名称> — 切换智能体
+更改模型 [模型ID] — 切换 AI 模型
+会话信息 — 查看当前会话状态
+添加智能体 <名称> <提示词> [选项] — 添加智能体
+删除智能体 <名称> — 删除智能体（管理员）
+修改智能体 <名称> [选项] — 修改智能体属性（管理员）
+续期vip <会话ID> <天数> — 续期 AI VIP（管理员）
+"""
+
+__all__ = []
+
+
+def strict_to_me(event: MessageEvent, bot: Bot) -> bool:
+    return (
+        event.message_type == "private"
+        or MessageSegment.at(bot.self_id) in event.original_message
+    )
 
 
 # 大模型回复匹配器
-LLMMatcher = on_message(to_me(), priority=20)
+LLMMatcher = on_message(rule=Rule(strict_to_me), priority=20)
 
 
 @LLMMatcher.handle()
@@ -45,16 +68,18 @@ async def llm(
     replies: Annotated[Sequence[Reply] | None, get_flow_replies],
     bot: Bot,
     event: MessageEvent,
-):
+) -> NoReturn:
     "大模型回复"
 
     assert config.ai
 
     session_id = get_session_id(event)
+    start_time = perf_counter()
 
     logger.debug(f"Successfully entered llm function with session_id {session_id}")
 
     # 检查模型是否可用
+    t0 = perf_counter()
     models = config.ai.models
     if user.model not in models.keys():
         await user.set({User.model: list(models.keys())[0]})
@@ -62,17 +87,27 @@ async def llm(
             f"\n您所选模型已下线，已自动为您切换可用的 {models[user.model].name} 模型",
             at_sender=True,
         )
-    
-    logger.debug(f"Model check done with {user.model}")
+    logger.debug(
+        f"Model check done with {user.model}, cost: {(perf_counter() - t0) * 1000:.2f}ms"
+    )
 
     # 检查是否有提示词
+    t0 = perf_counter()
     prompt = event.get_plaintext().strip()
     if not prompt:
         await LLMMatcher.finish("\n虽然你啥也没说，但是我记住你了！", at_sender=True)
-
-    logger.debug(f"Prompt check done!")
+    logger.debug(f"Prompt check done!, cost: {(perf_counter() - t0) * 1000:.2f}ms")
 
     # 构建历史消息
+    t0 = perf_counter()
+    messages = construct_history(replies or [], int(bot.self_id))
+    messages.append({"role": "user", "content": prompt})
+
+    for msg in messages:
+        if match := search(r"a\{(\S+?)\}", msg["content"]):
+            msg["content"] = msg["content"].replace(match.group(0), "")
+            user.system_prompt = match.group(1)
+
     system_prompt = await get_sysprompt(user.system_prompt)
 
     if not system_prompt:
@@ -84,35 +119,34 @@ async def llm(
 
     assert system_prompt
 
-    messages = construct_history(replies or [], int(bot.self_id))
-    messages.append({"role": "user", "content": prompt})
-
     model = models[user.model]
     predicted_tokens = tokenize(messages)
-
-    logger.debug(f"History construct done!")
+    logger.debug(f"History construct done!, cost: {(perf_counter() - t0) * 1000:.2f}ms")
 
     # 检查上下文长度是否足够
+    t0 = perf_counter()
     if predicted_tokens > (model.context_length or float("inf")):
         await LLMMatcher.finish(
             f"\n上下文长度 {predicted_tokens} tokens 超过模型能够处理的最长长度 {model.context_length} tokens",
             at_sender=True,
         )
-    
-    logger.debug(f"Context length check done!")
+    logger.debug(
+        f"Context length check done!, cost: {(perf_counter() - t0) * 1000:.2f}ms"
+    )
 
     # 搜索记忆
     if config.ai.memory:
+        t0 = perf_counter()
         from .memory import get_memprompt
 
         system_prompt.prompt += "\n" + await get_memprompt(session_id, prompt)
-    
-        logger.debug(f"Memory search done!")
+        logger.debug(f"Memory search done!, cost: {(perf_counter() - t0) * 1000:.2f}ms")
 
     # 流式回复track
     reply_id = event.message_id
     msgs = []
     para_no = 1
+    chat_start_time = perf_counter()
 
     try:
         async for paragraph in chat(
@@ -125,27 +159,35 @@ async def llm(
             system_prompt.max_tokens,
         ):
             logger.debug(f"Sending paragraph {para_no} with reply_id {reply_id}.")
-            data = await LLMMatcher.send(MessageSegment.reply(reply_id) + paragraph[0])
+            data = await LLMMatcher.send(
+                reply_segment(reply_id)
+                + (f"a{{{user.system_prompt}}}\n" if para_no == 1 else "")
+                + paragraph[0]
+            )
             reply_id = data["message_id"]
             msgs = paragraph[1]
             para_no += 1
-        
-        logger.debug(f"Reply done!")
+
+        logger.debug(
+            f"Reply done!, chat cost: {(perf_counter() - chat_start_time) * 1000:.2f}ms"
+        )
 
         if config.ai.memory:
+            t0 = perf_counter()
             from .memory import add_memory
 
             await add_memory(session_id, msgs[1:])
-            logger.debug(f"Memory done!")
+            logger.debug(f"Memory done!, cost: {(perf_counter() - t0) * 1000:.2f}ms")
 
         logger.debug(dumps(msgs, ensure_ascii=False, indent=2))
+        logger.debug(
+            f"llm function total cost: {(perf_counter() - start_time) * 1000:.2f}ms"
+        )
 
         await LLMMatcher.finish()
 
     except HTTPError as e:
-        await LLMMatcher.finish(MessageSegment.reply(reply_id) + f"上游异常：{e}")
-
-    await LLMMatcher.finish(MessageSegment.reply(reply_id) + f"内部异常。")
+        await LLMMatcher.finish(reply_segment(reply_id) + f"上游异常：{e}")
 
 
 # 设置系统提示词匹配器
@@ -157,7 +199,7 @@ PromptMatcher = on_alconna(prompt_cmd, block=True)
 async def set_prompt(
     user: Annotated[User, require()],
     prompt_name: Match[str],
-):
+) -> NoReturn:
     "设置系统提示词"
 
     if not prompt_name.available:
@@ -182,7 +224,9 @@ ModelChangeMatcher = on_alconna(model_cmd, block=True)
 
 
 @ModelChangeMatcher.handle()
-async def model_change(user: Annotated[User, require()], model_id: Match[str]):
+async def model_change(
+    user: Annotated[User, require()], model_id: Match[str]
+) -> NoReturn:
     "更改模型"
 
     assert config.ai
@@ -208,13 +252,13 @@ async def model_change(user: Annotated[User, require()], model_id: Match[str]):
     await ModelChangeMatcher.finish("\n成功为您更换模型。", at_sender=True)
 
 
-SessionMatcher = on_alconna(Alconna("会话信息"), block=True)
+SessionMatcher = on_command("会话信息", block=True)
 
 
 @SessionMatcher.handle()
 async def session_info(
     event: MessageEvent,
-):
+) -> NoReturn:
     "查看会话信息"
 
     session_id = get_session_id(event)
@@ -226,13 +270,13 @@ async def session_info(
     )
 
 
-ClearMemoryMatcher = on_alconna(Alconna("清除记忆"), block=True)
+ClearMemoryMatcher = on_command("清除记忆", block=True)
 
 
 @ClearMemoryMatcher.handle()
 async def clear_memory(
     event: MessageEvent,
-):
+) -> NoReturn:
     "清除记忆"
 
     if not config.ai or not config.ai.memory:
@@ -251,13 +295,13 @@ async def clear_memory(
     await ClearMemoryMatcher.finish("\n已尝试清除本会话的记忆", at_sender=True)
 
 
-GetMemoryMatcher = on_alconna(Alconna("查看记忆"), block=True)
+GetMemoryMatcher = on_command("查看记忆", block=True)
 
 
 @GetMemoryMatcher.handle()
 async def get_memory(
     event: MessageEvent,
-):
+) -> NoReturn:
     "查看记忆"
 
     if not config.ai or not config.ai.memory:
@@ -299,7 +343,7 @@ async def add_agent(
     agent_name: Match[str],
     prompt: Match[str],
     arp: Arparma[Any],
-):
+) -> NoReturn:
     "添加智能体"
 
     if not agent_name.available or not prompt.available:
@@ -345,7 +389,7 @@ DelAgentMatcher = on_alconna(del_agent_cmd, block=True)
 async def del_agent(
     user: Annotated[User, require(superuser=True)],
     agent_name: Match[str],
-):
+) -> NoReturn:
     "删除智能体"
 
     if not agent_name.available:
@@ -390,7 +434,7 @@ async def edit_agent(
     user: Annotated[User, require(superuser=True)],
     agent_name: Match[str],
     arp: Arparma[Any],
-):
+) -> NoReturn:
     "修改智能体"
 
     if not agent_name.available:

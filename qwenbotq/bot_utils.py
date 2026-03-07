@@ -9,17 +9,23 @@
 """
 
 import asyncio
-from random import random
-from typing import Annotated
+import re
+from typing import Annotated, cast
 from collections.abc import Callable, Awaitable
 
 from nonebot.matcher import Matcher
 from nonebot.params import Depends
-from nonebot.adapters.onebot.v11 import Bot, MessageEvent, Message, GroupMessageEvent
+from nonebot.adapters.onebot.v11 import (
+    Bot,
+    MessageEvent,
+    Message,
+    GroupMessageEvent,
+    MessageSegment,
+)
 from nonebot.adapters.onebot.v11.event import Reply
 
 from . import config
-from .database import User, get_vip
+from .database import User
 
 
 async def get_user(_id: str):
@@ -28,9 +34,6 @@ async def get_user(_id: str):
     if not user:
         user = User(id=_id)
         await user.insert()
-    if user.bind_power == 0:
-        user.bind_power = random() * 2
-        await user.save()
     return user
 
 
@@ -74,19 +77,30 @@ def reply(required: bool = False) -> Reply | None:
     return Depends(_reply, validate=True)
 
 
-async def _get_flow_replies(
-    replied: Annotated[Reply | None, reply()], bot: Bot
-) -> list[Reply] | None:
+def reply_segment(id: int) -> Message:
+    return MessageSegment.reply(id) + f"r{{{id}}}\n"
+
+
+def preprocess_reply(msg: Message) -> Message:
+    if r := msg["text"]:
+        data = cast(dict[str, str], r[0].data)
+        if match := re.search(r"r\{(\d+?)\}", data["text"]):
+            if not msg["reply"]:
+                msg.append(MessageSegment.reply(int(match.group(1))))
+            data["text"] = data["text"].replace(match.group(0), "")
+            if not data["text"].strip():
+                msg.remove(r[0])
+    return msg
+
+
+async def _get_flow_replies(bot: Bot, event: MessageEvent) -> list[Reply] | None:
     "获取回复链"
-    if not replied:
+    if not event.reply:
         return None
-    replies = [replied]
-    while replies[-1].message["reply"]:
-        replies.append(
-            Reply.model_validate(
-                await bot.get_msg(message_id=replies[-1].message["reply", 0].data["id"])
-            )
-        )
+    replies = [event.reply]
+    while r := preprocess_reply(replies[-1].message)["reply"]:
+        reply = await bot.get_msg(message_id=r[0].data["id"])
+        replies.append(Reply.model_validate(reply))
     return list(reversed(replies))
 
 

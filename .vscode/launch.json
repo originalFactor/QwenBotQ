@@ -11,7 +11,9 @@
             "program": "${workspaceFolder}/bot.py",
             "console": "integratedTerminal",
             "env": {
-                "LOG_LEVEL": "DEBUG"
+                "LOG_LEVEL": "DEBUG",
+                "HTTP_PROXY": "http://127.0.0.1:7897",
+                "HTTPS_PROXY": "http://127.0.0.1:7897"
             }
         }
     ]

@@ -12,14 +12,23 @@ from typing import Annotated
 
 from arclet.alconna import Alconna, Args
 from nonebot_plugin_alconna import on_alconna, Match
-from nonebot import get_bot
+from nonebot import get_bot, get_driver
 from nonebot.log import logger
 from nonebot.adapters.onebot.v11 import GroupMessageEvent
 from nonebot_plugin_apscheduler import scheduler
 
-from . import config, driver
+from . import config
 from .database import User, LotteryTicket
 from .bot_utils import require
+from .help import HELP_TEXT
+
+HELP_TEXT += """
+【抽奖】
+购买奖号 <6位数字> — 花费积分购买奖号
+我的奖号 — 查看待开奖的奖号
+提前开奖 — 强制立即开奖（管理员）
+每天中午12:00自动开奖
+"""
 
 
 def get_nextday():
@@ -78,7 +87,10 @@ async def buy_ticket(
     await user.inc({User.coins: -config.lottery.ticket_price})
 
     await BuyMatcher.finish(
-        "购买成功！" f"\n奖号：{num}" f"\n开奖时间：{get_nextday()}",
+        "购买成功！"
+        f"\n奖号：{num}"
+        f"\n开奖时间：{get_nextday()}"
+        f"\n消耗积分：{config.lottery.ticket_price}",
         at_sender=True,
     )
 
@@ -188,7 +200,7 @@ async def force_draw_lottery(
     await ForceDrawMatcher.finish("\n已提前开奖", at_sender=True)
 
 
-@driver.on_startup
+@get_driver().on_startup
 async def register_lottery_scheduler():
     "注册抽奖定时任务"
     scheduler.add_job(

@@ -4,5 +4,8 @@
 # https://opensource.org/licenses/MIT
 
 
-def noid():
+from typing import NoReturn
+
+
+def noid() -> NoReturn:
     raise RuntimeError("必须提供ID")

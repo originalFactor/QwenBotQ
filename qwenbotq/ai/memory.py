@@ -4,9 +4,16 @@
 # https://opensource.org/licenses/MIT
 
 from mem0 import AsyncMemory
+from nonebot import get_driver
 from nonebot.log import logger
 
-from .. import config, driver
+from .. import config
+from ..help import HELP_TEXT
+
+HELP_TEXT += """
+清除记忆 — 清除当前会话记忆
+查看记忆 — 查看当前会话记忆
+"""
 
 assert config.ai and config.ai.memory
 
@@ -90,7 +97,7 @@ async def getall_memory(session_id: str) -> list[str]:
     return [r["memory"] for r in results["results"]]
 
 
-@driver.on_startup
+@get_driver().on_startup
 async def initialize_memory():
     "初始化记忆系统"
 

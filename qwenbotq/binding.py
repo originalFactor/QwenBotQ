@@ -6,7 +6,7 @@
 
 "绑定相关"
 
-from random import choice, random
+from random import choice, randint
 from datetime import date, timedelta
 from typing import Annotated
 
@@ -20,8 +20,17 @@ from nonebot.adapters.onebot.v11 import (
 )
 
 from . import config
-from .database import User, apply_bind, BindRequest
+from .database import User, apply_bind, BindRequest, get_biggest_coins
 from .bot_utils import require, get_user, get_nick, get_session_id, send_session
+from .help import HELP_TEXT
+
+HELP_TEXT += """
+【绑定系统】
+今日老公 — 随机绑定今日老公
+换老公 — 解除当前绑定
+续期 [天数] — 续期当前绑定关系
+申请绑定 @用户 — 向指定用户申请绑定
+"""
 
 
 WifeMatcher = on_alconna(Alconna("今日老公"), block=True)
@@ -33,16 +42,21 @@ async def wife(user: Annotated[User, require()], event: GroupMessageEvent, bot: 
     if user.binded and user.binded.expire > date.today():
         cp_user = await get_user(user.binded.id)
         expire = user.binded.expire
+        if not (cp_user.binded and cp_user.binded.id == user.id):
+            await WifeMatcher.finish(
+                "\n您的绑定数据有误，请联系管理员！", at_sender=True
+            )
     else:
         members = await bot.get_group_member_list(group_id=event.group_id)
+        biggest = await get_biggest_coins()
         while True:
             x = choice(members)
             cp_user = await get_user(str(x["user_id"]))
-            power = random() * 2
+            power = randint(0, biggest)
             if (
                 (cp_user.id == user.id)
                 or (cp_user.binded and cp_user.binded.expire > date.today())
-                or (cp_user.bind_power > power)
+                or (cp_user.coins > power)
             ):
                 members.remove(x)
                 power += 0.2
@@ -64,11 +78,22 @@ RefreshMatcher = on_alconna(Alconna("换老公"), block=True)
 
 
 @RefreshMatcher.handle()
-async def refresh(user: Annotated[User, require(config.price.refresh_price)]):
+async def refresh(
+    user: Annotated[User, require(config.price.refresh_price, only_check=True)],
+):
     "解除绑定"
-    await user.set({"binded": None})
 
-    await RefreshMatcher.finish("\n已解除绑定！", at_sender=True)
+    if user.binded and user.binded.expire > date.today():
+        w = await get_user(user.binded.id)
+        if w.binded and w.binded.id == user.id:
+            await w.set({"binded.expire": date.today()})
+        await user.set({"binded.expire": date.today()})
+        await user.inc({"coins": -config.price.refresh_price})
+        await RefreshMatcher.finish(
+            "\n已解除绑定！" f"\n消耗 {config.price.refresh_price} 积分", at_sender=True
+        )
+    else:
+        await RefreshMatcher.finish("\n您还没有绑定关系", at_sender=True)
 
 
 RenewMatcher = on_alconna(Alconna("续期", Args["days?", int]), block=True)
@@ -79,35 +104,37 @@ async def renew(
     user: Annotated[User, require()], bot: Bot, event: MessageEvent, days: Match[int]
 ):
     "续期关系"
-    if user.binded and user.binded.expire > date.today():
-        days_i = days.result if days.available else 1
+    if not (user.binded and user.binded.expire > date.today()):
+        await RenewMatcher.finish("\n无绑定数据", at_sender=True)
 
-        if days_i < 1:
-            await RenewMatcher.finish("\n续期天数不能小于1天", at_sender=True)
+    days_i = days.result if days.available else 1
+    if days_i < 1:
+        await RenewMatcher.finish("\n续期天数不能小于1天", at_sender=True)
 
-        if user.coins < config.price.renew_cost * days_i:
-            await RenewMatcher.finish("\n您的余额不足", at_sender=True)
+    if user.coins < config.price.renew_cost * days_i:
+        await RenewMatcher.finish("\n您的余额不足", at_sender=True)
 
-        w = await get_user(user.binded.id)
-        new_exp = user.binded.expire + timedelta(days=days_i)
+    w = await get_user(user.binded.id)
+    if not (w.binded and w.binded.id == user.id):
+        await RenewMatcher.finish("\n您的绑定数据异常，请联系管理员", at_sender=True)
 
-        await w.set({"binded.expire": new_exp})
-        await user.set({"binded.expire": new_exp})
+    new_exp = user.binded.expire + timedelta(days=days_i)
 
-        elapsed_coins = config.price.renew_cost * days_i
-        await user.inc({"coins": -elapsed_coins})
+    await w.set({"binded.expire": new_exp})
+    await user.set({"binded.expire": new_exp})
 
-        w_nick = await get_nick(get_session_id(event), w.id, bot)
-        await RenewMatcher.finish(
-            "\n已成功续期您和\n"
-            f"{w_nick} ({w.id})\n"
-            "的关系至\n"
-            f'{user.binded.expire.strftime("%Y/%m/%d")}\n'
-            f"消耗 {elapsed_coins} 积分",
-            at_sender=True,
-        )
+    elapsed_coins = config.price.renew_cost * days_i
+    await user.inc({"coins": -elapsed_coins})
 
-    await RenewMatcher.finish("\n无绑定数据", at_sender=True)
+    w_nick = await get_nick(get_session_id(event), w.id, bot)
+    await RenewMatcher.finish(
+        "\n已成功续期您和\n"
+        f"{w_nick} ({w.id})\n"
+        "的关系至\n"
+        f'{user.binded.expire.strftime("%Y/%m/%d")}\n'
+        f"消耗 {elapsed_coins} 积分",
+        at_sender=True,
+    )
 
 
 RequestMatcher = on_alconna(

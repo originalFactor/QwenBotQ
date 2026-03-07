@@ -61,7 +61,7 @@ class MemoryQdrantConfig(BaseModel):
     "Qdrant向量数据库配置"
 
     collection_name: str = "aioBotMemories"
-    host: str = "127.0.0.1"
+    host: str = "localhost"
     port: int = 6333
 
 

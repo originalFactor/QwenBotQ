@@ -1,8 +1,11 @@
 {
-    "licenser.projectName": "QwenBotQ",
-    "python-envs.defaultEnvManager": "ms-python.python:poetry",
-    "python-envs.defaultPackageManager": "ms-python.python:poetry",
-    "python-envs.pythonProjects": [],
-    "licenser.author": "originalFactor",
-    "licenser.license": "MIT"
+  "licenser.projectName": "QwenBotQ",
+  "python-envs.defaultEnvManager": "ms-python.python:poetry",
+  "python-envs.defaultPackageManager": "ms-python.python:poetry",
+  "python-envs.pythonProjects": [],
+  "licenser.author": "originalFactor",
+  "licenser.license": "MIT",
+  "python.analysis.typeCheckingMode": "basic",
+  "basedpyright.analysis.diagnosticMode": "workspace",
+  "basedpyright.analysis.typeCheckingMode": "basic"
 }

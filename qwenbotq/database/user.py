@@ -34,7 +34,6 @@ class User(Document):
     sign_expire: date = date.min
     model: str = ""
     binded: Binded | None = None
-    bind_power: float = 0
 
     @field_validator("sign_expire", mode="before")
     @classmethod
@@ -49,3 +48,8 @@ async def apply_bind(a: User, b: User) -> date:
     await a.set({"binded": Binded(id=b.id, expire=expire)})
     await b.set({"binded": Binded(id=a.id, expire=expire)})
     return expire
+
+
+async def get_biggest_coins() -> int:
+    a = await User.find_one(sort=["-coins"])
+    return a.coins if a else 0

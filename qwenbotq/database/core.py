@@ -7,9 +7,10 @@ from collections.abc import Sequence, Callable, Awaitable
 
 from motor.motor_asyncio import AsyncIOMotorClient
 from nonebot.log import logger
+from nonebot import get_driver
 from beanie import Document, init_beanie
 
-from .. import config, driver
+from .. import config
 
 
 class Mongo:
@@ -29,7 +30,7 @@ class Mongo:
         return cls._client
 
     @classmethod
-    async def register_models(cls, document_models: Sequence[type[Document]]):
+    async def register_models(cls, document_models: Sequence[type[Document]]) -> None:
         "注册模型"
         database = getattr(cls.client(), config.database.name)
         await init_beanie(database, document_models=document_models)
@@ -40,7 +41,7 @@ require_inject: list[Callable[[], None | Awaitable[None]]] = []
 from . import subscribe, user, vip, agents, lottery, bindrequest
 
 
-@driver.on_startup
+@get_driver().on_startup
 async def initialize_database():
     "初始化数据库"
 
@@ -81,7 +82,7 @@ async def initialize_database():
             await r
 
 
-@driver.on_shutdown
+@get_driver().on_shutdown
 async def close_database():
     "关闭数据库连接"
     if Mongo._client:

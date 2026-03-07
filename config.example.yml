@@ -3,7 +3,7 @@
 # (*) 为必填项
 # 可选项内有必填项的，只能整个不填或者填写所有必填项，整个不填代表关闭该模块
 
-# ============ AI 大模型配置 ============
+# ============ AI 大模型配置（可选，不填则关闭AI功能） ============
 ai:
   # API 接口列表（*）
   apis:
@@ -20,6 +20,7 @@ ai:
       context_length: null # 上下文长度（null为不限制）
       max_tokens: null # 最大输出 token 数（null为不限制）
       detail: "" # 模型描述
+      dimensions: null # 向量维度（仅 embedding 模型需要）
 
   # 默认提示词配置
   default_prompts:
@@ -31,7 +32,7 @@ ai:
       presence_penalty: 0.0
       max_tokens: null # （null为继承模型配置）
 
-    # unsafe 提示词
+    # unsafe 提示词（可选，不填则关闭）
     unsafe:
       prompt: "你的自定义提示词" # （*）
       temperature: 1.0
@@ -45,7 +46,7 @@ ai:
       token: sk-your-bocha-token-here # (*）
       endpoint: https://api.bocha.cn/v1/web-search
 
-  # 记忆（RAG）配置
+  # 记忆（RAG）配置（可选，不填则关闭记忆功能）
   memory:
     llm: # （*）
       api_id: my_api # (*)
@@ -54,7 +55,7 @@ ai:
       api_id: my_api # (*)
       model_id: text-embedding-3-small # (*)
       dimensions: 1536 # (*)
-    reranker:
+    reranker: # （可选，不填则不使用 reranker）
       api_id: my_api # (*)
       model_id: BAAI/bge-reranker-v2-m3 # (*)
     threshold: 0.8 # 记忆匹配阈值
@@ -65,7 +66,7 @@ ai:
 
 # ============ 数据库配置 ============
 database:
-  uri: mongodb://127.0.0.1:27017/ # 数据库地址
+  uri: mongodb://127.0.0.1:27017 # 数据库地址
   name: aioBot # 数据库名
 
 # ============ 积分 / 价格配置 ============
@@ -75,7 +76,7 @@ price:
   refresh_price: 1 # 换老婆价格
   renew_cost: 1 # 续费老婆价格
 
-# ============ 哔哩哔哩动态订阅配置 ============
+# ============ 哔哩哔哩动态订阅配置（可选，不填则关闭） ============
 focus:
   sessdata: your-bilibili-sessdata # (*)
   subscribes: # (*)
@@ -94,3 +95,8 @@ lottery:
     - "123456789"
   ticket_price: 200 # 每注价格
   reward_per_match: 200 # 每匹配一位的奖励
+
+# ============ 图片搜索配置 ============
+imagesearch:
+  exhentai_cookies: null # ExHentai Cookies（可选，不填则无法搜索ExHentai）
+  file_server_port: 9080 # 文件服务器端口

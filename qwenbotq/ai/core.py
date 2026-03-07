@@ -9,7 +9,8 @@ from typing import Any
 from openai import AsyncOpenAI, AsyncStream
 from openai.types.chat import ChatCompletionChunk
 
-from .. import config, httpClient
+from .. import config
+from ..tools import client
 from .calls import get_tool_prompts, calling_vacumm, process_calls
 
 
@@ -26,70 +27,66 @@ async def chat(
 
     model_obj = config.ai.models[model]
     api = config.ai.apis[model_obj.api_id]
-
-    openai = AsyncOpenAI(base_url=api.base, api_key=api.token, http_client=httpClient)
-
     tools = get_tool_prompts()
-
     messages.insert(0, {"role": "system", "content": system})
 
-    while True:
+    async with client() as httpClient:
+        openai = AsyncOpenAI(
+            base_url=api.base, api_key=api.token, http_client=httpClient
+        )
+        while True:
 
-        # 创建请求
-        response: AsyncStream[ChatCompletionChunk] = (
-            await openai.chat.completions.create(
-                model=model_obj.model_id,
-                messages=messages,  # type: ignore
-                tools=tools,  # type: ignore
-                max_tokens=max_tokens or model_obj.max_tokens,
-                temperature=temperature,
-                frequency_penalty=frequency_penalty,
-                presence_penalty=presence_penalty,
-                stream=True,
+            # 创建请求
+            response: AsyncStream[ChatCompletionChunk] = (
+                await openai.chat.completions.create(
+                    model=model_obj.model_id,
+                    messages=messages,  # type: ignore
+                    tools=tools,  # type: ignore
+                    max_tokens=max_tokens or model_obj.max_tokens,
+                    temperature=temperature,
+                    frequency_penalty=frequency_penalty,
+                    presence_penalty=presence_penalty,
+                    stream=True,
+                )
             )
-        )
 
-        # 处理回复
-        received = ""
-        full_received = ""
-        callings = {}
+            # 处理回复
+            received = ""
+            full_received = ""
+            callings = {}
 
-        async for chunk in response:
-            # 有数据
-            if not chunk.choices:
-                continue
+            async for chunk in response:
+                # 有数据
+                if not chunk.choices:
+                    continue
 
-            # 加入数据
-            delta = chunk.choices[0].delta
+                # 加入数据
+                delta = chunk.choices[0].delta
 
-            # 处理函数调用
-            calling_vacumm(callings, delta.tool_calls or [])
+                # 处理函数调用
+                calling_vacumm(callings, delta.tool_calls or [])
 
-            # 处理文本信息
-            recv_len = len(received)
-            received += delta.content or ""
-            full_received += delta.content or ""
+                # 处理文本信息
+                recv_len = len(received)
+                received += delta.content or ""
+                full_received += delta.content or ""
 
-            # 寻找段落分隔符
-            while (sep := received.find("\n\n", recv_len - 2)) != -1:
-                if p := received[: sep + 1].replace("\\~", "").strip():
-                    yield (p, messages)
-                received = received[sep + 1 :]
+                # 寻找段落分隔符
+                while (sep := received.find("\n\n", recv_len - 2)) != -1:
+                    if p := received[: sep + 1].replace("\\~", "").strip():
+                        yield (p, messages)
+                    received = received[sep + 1 :]
 
-        messages.append(
-            {
-                "role": "assistant",
-                "content": full_received,
-                "tool_calls": list(callings.values()),
-            }
-        )
-
-        received = received.replace("\\~", "").strip()
-
-        if received:
-            yield (received, messages)
-
-        if not callings:
-            break
-
-        messages += await process_calls(callings.values())
+            messages.append(
+                {
+                    "role": "assistant",
+                    "content": full_received,
+                    "tool_calls": list(callings.values()),
+                }
+            )
+            received = received.replace("\\~", "").strip()
+            if received:
+                yield (received, messages)
+            if not callings:
+                break
+            messages += await process_calls(callings.values())

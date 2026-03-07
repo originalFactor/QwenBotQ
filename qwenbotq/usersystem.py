@@ -24,6 +24,14 @@ from .bot_utils import (
     nick_getter,
 )
 from .database import User, buy_vip
+from .help import HELP_TEXT
+
+HELP_TEXT += """
+【用户系统】
+签到 — 每日签到领取积分
+用户信息 [@用户] — 查看用户信息
+转账给 @用户 <积分数量> — 转账积分
+"""
 
 
 user_info_cmd = Alconna("用户信息", Args["target?", At])
@@ -54,7 +62,6 @@ async def get_information(
     await GetInformationMatcher.finish(
         f"\n{user.id}的用户信息：\n"
         f"昵称：{user_nick}\n"
-        f"稀有度：{round(user.bind_power, 2)}\n"
         f"积分：{user.coins}\n\t"
         + (
             f"已签到\n\t失效日期：{user.sign_expire.strftime('%Y/%m/%d')}\n"

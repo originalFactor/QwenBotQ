@@ -6,7 +6,7 @@
 "数据库模块"
 
 from .subscribe import SubscribeStatus
-from .user import User, apply_bind
+from .user import User, apply_bind, get_biggest_coins
 from .vip import get_vip, buy_vip
 from .agents import Agent
 from .lottery import LotteryTicket
@@ -15,6 +15,7 @@ from . import core
 
 
 __all__ = [
+    "core",
     "User",
     "SubscribeStatus",
     "apply_bind",
@@ -23,4 +24,5 @@ __all__ = [
     "Agent",
     "LotteryTicket",
     "BindRequest",
+    "get_biggest_coins",
 ]

@@ -9,25 +9,28 @@
 from pydantic import BaseModel
 from yaml import safe_load
 
-from .. import driver
+from nonebot import get_driver
+
 from .ai import LLMConfig
 from .database import DatabaseConfig
 from .focus import FocusOptions
 from .price import PriceConfig
 from .lottery import LotteryConfig
+from .imagesearch import ImageSearchConfig
 
 
 class Config(BaseModel):
     """The config class of QwenBotQ."""
 
     supermgr_ids: list[str] = list(
-        driver.config.superusers
+        get_driver().config.superusers
     )  # 超管列表，自动从Nonebot读取
     database: DatabaseConfig = DatabaseConfig()  # 数据库
     ai: LLMConfig | None = None  # 大模型配置
     price: PriceConfig = PriceConfig()  # 价格配置
     focus: FocusOptions | None = None  # 关注配置
     lottery: LotteryConfig = LotteryConfig()  # 抽奖配置
+    imagesearch: ImageSearchConfig = ImageSearchConfig()  # 图片搜索配置
 
 
 def get_config() -> Config:

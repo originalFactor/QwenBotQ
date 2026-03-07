@@ -14,16 +14,18 @@ from asyncio import sleep
 from datetime import datetime, timedelta
 
 from aiohttp import ClientSession
-from nonebot import get_bot
+from nonebot import get_bot, get_driver
 from nonebot.log import logger
 from nonebot.adapters.onebot.v11 import Bot, Message, MessageSegment
 from nonebot_plugin_apscheduler import scheduler
 
-from . import config, driver
+from . import config
 from .database import SubscribeStatus
 
 
-async def notice(message: Message | str, users: Sequence[str], groups: Sequence[str]):
+async def notice(
+    message: Message | str, users: Sequence[str], groups: Sequence[str]
+) -> None:
     "消息提醒"
     bot: Bot = get_bot()  # type: ignore
     for user in users:
@@ -97,7 +99,7 @@ async def parse_item(item: Mapping[str, Any]) -> Message | str | None:
     return None
 
 
-async def check_and_push(session: ClientSession):
+async def check_and_push(session: ClientSession) -> None:
     "定期检查并推送动态及直播"
     logger.info("动态和直播推送开始检查……")
     assert config.focus
@@ -166,8 +168,8 @@ async def check_and_push(session: ClientSession):
 pool: list[ClientSession] = []
 
 
-@driver.on_startup
-async def on_startup():
+@get_driver().on_startup
+async def on_startup() -> None:
     "注册计划任务"
     if config.focus:
         pool.append(
@@ -189,8 +191,8 @@ async def on_startup():
         )
 
 
-@driver.on_shutdown
-async def on_shutdown():
+@get_driver().on_shutdown
+async def on_shutdown() -> None:
     "关闭客户端session"
     for session in pool:
         await session.close()

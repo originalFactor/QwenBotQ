@@ -3,7 +3,10 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-from ... import config, httpClient
+from ... import config
+from ...tools import client
+
+__all__ = ["web_search", "WEB_SEARCH_PROMPT"]
 
 WEB_SEARCH_PROMPT = {
     "type": "function",
@@ -63,9 +66,10 @@ async def web_search(
         "count": count,
     }
 
-    resp = await httpClient.post(url=bocha.endpoint, headers=headers, json=payload)
-    resp.raise_for_status()
-    data = resp.json()["data"]["webPages"]["value"]
+    async with client() as httpClient:
+        resp = await httpClient.post(url=bocha.endpoint, headers=headers, json=payload)
+        resp.raise_for_status()
+        data = resp.json()["data"]["webPages"]["value"]
 
     return [
         {"title": _["name"], "summary": _["summary"], "publishedAt": _["datePublished"]}
