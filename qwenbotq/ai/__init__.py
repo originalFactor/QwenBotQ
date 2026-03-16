@@ -74,6 +74,10 @@ async def llm(
     assert config.ai
 
     session_id = get_session_id(event)
+    has_vip, _ = await get_vip(session_id)
+    if not has_vip:
+        await LLMMatcher.finish("\n请先开通 AI VIP !", at_sender=True)
+
     start_time = perf_counter()
 
     logger.debug(f"Successfully entered llm function with session_id {session_id}")

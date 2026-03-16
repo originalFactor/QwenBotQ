@@ -49,7 +49,7 @@ async def web_search(
     include: str = "",
     exclude: str = "",
     count: int = 10,
-) -> list[dict[str, str]]:
+) -> dict[str, list[dict[str, str]]]:
     assert config.ai and config.ai.tools.bocha
     bocha = config.ai.tools.bocha
 
@@ -69,9 +69,22 @@ async def web_search(
     async with client() as httpClient:
         resp = await httpClient.post(url=bocha.endpoint, headers=headers, json=payload)
         resp.raise_for_status()
-        data = resp.json()["data"]["webPages"]["value"]
+        data = resp.json()["data"]
+        pages = data["webPages"]["value"]
+        images = data["images"]["value"]
 
-    return [
-        {"title": _["name"], "summary": _["summary"], "publishedAt": _["datePublished"]}
-        for _ in data
-    ]
+    return {
+        "pages": [
+            {
+                "title": _["name"],
+                "url": _["url"],
+                "summary": _["summary"],
+                "publishedAt": _["datePublished"],
+            }
+            for _ in pages
+        ],
+        "images": [
+            {"contentUrl": _["contentUrl"], "hostPageUrl": _["hostPageUrl"]}
+            for _ in images
+        ],
+    }
