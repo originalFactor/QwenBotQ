@@ -92,7 +92,7 @@ async def add_memory(session_id: str, messages: list[dict]):
 
     assert memory
     await memory.add(
-        messages,
+        [{"role": m["role"], "content": m["content"]} for m in messages],
         user_id=session_id,
     )
 
