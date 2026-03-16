@@ -8,8 +8,10 @@ from contextlib import asynccontextmanager
 from truststore import SSLContext
 from httpx import AsyncClient
 
+def make_client(**kwargs) -> AsyncClient:
+    return AsyncClient(verify=SSLContext(PROTOCOL_TLS_CLIENT), **kwargs)
 
 @asynccontextmanager
 async def client(**kwargs):
-    async with AsyncClient(verify=SSLContext(PROTOCOL_TLS_CLIENT), **kwargs) as client:
+    async with make_client(**kwargs) as client:
         yield client

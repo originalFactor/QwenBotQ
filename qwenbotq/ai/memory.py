@@ -6,6 +6,7 @@
 from mem0 import AsyncMemory, AsyncMemoryClient
 from nonebot import get_driver
 from nonebot.log import logger
+from ..tools import make_client
 
 from qwenbotq.config_model.ai import CloudMemoryConfig
 
@@ -22,8 +23,10 @@ assert config.ai and config.ai.memory
 memconf = config.ai.memory
 memory: AsyncMemory | AsyncMemoryClient | None = None
 
+
 if isinstance(memconf, CloudMemoryConfig):
-    memory = AsyncMemoryClient(memconf.api_key)
+    client = make_client()
+    memory = AsyncMemoryClient(memconf.api_key, client=client)
 else:
     conf = {
         "vector_store": {
@@ -107,9 +110,17 @@ async def initialize_memory():
     "初始化记忆系统"
     if isinstance(memconf, CloudMemoryConfig):
         logger.info("使用云记忆系统")
+        logger.debug(f"API Key: {memconf.api_key}")
         return
 
     global memory
     logger.info("正在初始化记忆系统...")
     logger.debug(f"记忆系统配置: {conf}")
     memory = await AsyncMemory.from_config(conf)
+
+@get_driver().on_shutdown
+async def shutdown_memory():
+    "关闭记忆系统"
+    if isinstance(memconf, CloudMemoryConfig):
+        await client.aclose()
+        logger.info("云记忆系统已关闭")
