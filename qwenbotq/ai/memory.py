@@ -84,7 +84,7 @@ async def get_memprompt(session_id: str, prompt: str) -> str:
             rerank=True,
             threshold=memconf.threshold,
         )
-    return "MEMORIES: \n" + "\n".join([r["memory"] for r in results[""]])
+    return "MEMORIES: \n" + "\n".join([r["memory"] for r in results["results"]])
 
 
 async def add_memory(session_id: str, messages: list[dict]):
