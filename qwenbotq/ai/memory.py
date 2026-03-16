@@ -3,9 +3,11 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-from mem0 import AsyncMemory
+from mem0 import AsyncMemory, AsyncMemoryClient
 from nonebot import get_driver
 from nonebot.log import logger
+
+from qwenbotq.config_model.ai import CloudMemoryConfig
 
 from .. import config
 from ..help import HELP_TEXT
@@ -18,48 +20,51 @@ HELP_TEXT += """
 assert config.ai and config.ai.memory
 
 memconf = config.ai.memory
+memory: AsyncMemory | AsyncMemoryClient | None = None
 
-conf = {
-    "vector_store": {
-        "provider": "qdrant",
-        "config": {
-            "collection_name": memconf.qdrant.collection_name,
-            "host": memconf.qdrant.host,
-            "port": memconf.qdrant.port,
-            "embedding_model_dims": memconf.embedder.dimensions,
+if isinstance(memconf, CloudMemoryConfig):
+    memory = AsyncMemoryClient(memconf.api_key)
+else:
+    conf = {
+        "vector_store": {
+            "provider": "qdrant",
+            "config": {
+                "collection_name": memconf.qdrant.collection_name,
+                "host": memconf.qdrant.host,
+                "port": memconf.qdrant.port,
+                "embedding_model_dims": memconf.embedder.dimensions,
+            },
         },
-    },
-    "llm": {
-        "provider": "openai",
-        "config": {
-            "model": memconf.llm.model_id,
-            "api_key": config.ai.apis[memconf.llm.api_id].token,
-            "openai_base_url": config.ai.apis[memconf.llm.api_id].base,
-        },
-    },
-    "embedder": {
-        "provider": "openai",
-        "config": {
-            "model": memconf.embedder.model_id,
-            "api_key": config.ai.apis[memconf.embedder.api_id].token,
-            "embedding_dims": memconf.embedder.dimensions,
-            "openai_base_url": config.ai.apis[memconf.embedder.api_id].base,
-        },
-    },
-}
-
-if memconf.reranker:
-    conf["reranker"] = {
-        "provider": "llm_reranker",
-        "config": {
+        "llm": {
             "provider": "openai",
-            "model": memconf.reranker.model_id,
-            "api_key": config.ai.apis[memconf.reranker.api_id].token,
-            "openai_base_url": config.ai.apis[memconf.reranker.api_id].base,
+            "config": {
+                "model": memconf.llm.model_id,
+                "api_key": config.ai.apis[memconf.llm.api_id].token,
+                "openai_base_url": config.ai.apis[memconf.llm.api_id].base,
+            },
+        },
+        "embedder": {
+            "provider": "openai",
+            "config": {
+                "model": memconf.embedder.model_id,
+                "api_key": config.ai.apis[memconf.embedder.api_id].token,
+                "embedding_dims": memconf.embedder.dimensions,
+                "openai_base_url": config.ai.apis[memconf.embedder.api_id].base,
+            },
         },
     }
+    if memconf.reranker:
+        conf["reranker"] = {
+            "provider": "llm_reranker",
+            "config": {
+                "provider": "openai",
+                "model": memconf.reranker.model_id,
+                "api_key": config.ai.apis[memconf.reranker.api_id].token,
+                "openai_base_url": config.ai.apis[memconf.reranker.api_id].base,
+            },
+        }
 
-memory: AsyncMemory | None = None
+
 
 
 async def get_memprompt(session_id: str, prompt: str) -> str:
@@ -100,6 +105,9 @@ async def getall_memory(session_id: str) -> list[str]:
 @get_driver().on_startup
 async def initialize_memory():
     "初始化记忆系统"
+    if isinstance(memconf, CloudMemoryConfig):
+        logger.info("使用云记忆系统")
+        return
 
     global memory
     logger.info("正在初始化记忆系统...")

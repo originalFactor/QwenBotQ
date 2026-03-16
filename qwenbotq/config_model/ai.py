@@ -65,13 +65,19 @@ class MemoryQdrantConfig(BaseModel):
     port: int = 6333
 
 
-class MemoryConfig(BaseModel):
+class LocalMemoryConfig(BaseModel):
     "记忆配置"
 
     llm: LLMModelConfig
     reranker: LLMModelConfig | None = None
     embedder: LLMModelConfig
     qdrant: MemoryQdrantConfig = MemoryQdrantConfig()
+    threshold: float = 0.8
+
+class CloudMemoryConfig(BaseModel):
+    "云记忆配置"
+
+    api_key: str
     threshold: float = 0.8
 
 
@@ -82,4 +88,4 @@ class LLMConfig(BaseModel):
     models: dict[str, LLMModelConfig]
     default_prompts: DefaultPromptsConfig = DefaultPromptsConfig()
     tools: LLMToolsConfig = LLMToolsConfig()
-    memory: MemoryConfig | None = None
+    memory: LocalMemoryConfig | CloudMemoryConfig | None = None
