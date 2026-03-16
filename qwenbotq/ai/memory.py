@@ -3,6 +3,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
+from typing import cast
 from mem0 import AsyncMemory, AsyncMemoryClient
 from nonebot import get_driver
 from nonebot.log import logger
@@ -68,16 +69,22 @@ else:
         }
 
 
-
-
 async def get_memprompt(session_id: str, prompt: str) -> str:
     "获取记忆提示词"
 
     assert memory
-    results = await memory.search(
-        prompt, user_id=session_id, threshold=memconf.threshold
-    )
-    return "MEMORIES: \n" + "\n".join([r["memory"] for r in results["results"]])
+    if isinstance(memory, AsyncMemory):
+        results = await memory.search(
+            prompt, user_id=session_id, threshold=memconf.threshold
+        )
+    else:
+        results = await memory.search(
+            prompt,
+            filters={"user_id": session_id},
+            rerank=True,
+            threshold=memconf.threshold,
+        )
+    return "MEMORIES: \n" + "\n".join([r["memory"] for r in results[""]])
 
 
 async def add_memory(session_id: str, messages: list[dict]):
@@ -101,7 +108,10 @@ async def getall_memory(session_id: str) -> list[str]:
     "获取所有记忆"
 
     assert memory
-    results = await memory.get_all(user_id=session_id)
+    if isinstance(memory, AsyncMemory):
+        results = await memory.get_all(user_id=session_id)
+    else:
+        results = await memory.get_all(filters={"user_id": session_id})
     return [r["memory"] for r in results["results"]]
 
 
@@ -117,6 +127,7 @@ async def initialize_memory():
     logger.info("正在初始化记忆系统...")
     logger.debug(f"记忆系统配置: {conf}")
     memory = await AsyncMemory.from_config(conf)
+
 
 @get_driver().on_shutdown
 async def shutdown_memory():

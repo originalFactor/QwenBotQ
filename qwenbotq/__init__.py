@@ -3,6 +3,9 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
+# injects urllib3
+import truststore
+truststore.inject_into_ssl()
 
 "QwenBotQ 主要部分"
 
@@ -35,8 +38,3 @@ if config.focus:
     import_module(".bilinotice", __package__)
 if config.lottery:
     import_module(".lottery", __package__)
-
-
-# 帮助命令
-from arclet.alconna import Alconna
-from nonebot_plugin_alconna import on_alconna
