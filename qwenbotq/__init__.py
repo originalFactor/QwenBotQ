@@ -5,6 +5,7 @@
 
 # injects urllib3
 import truststore
+
 truststore.inject_into_ssl()
 
 "QwenBotQ 主要部分"
@@ -26,6 +27,7 @@ require("nonebot_plugin_alconna")
 import_module(".binding", __package__)
 import_module(".usersystem", __package__)
 import_module(".imagesearch", __package__)
+import_module(".superuser", __package__)
 
 # optional features
 if config.focus or config.lottery:

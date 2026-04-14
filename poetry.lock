@@ -3916,6 +3916,21 @@ text-unidecode = ">=1.3"
 unidecode = ["Unidecode (>=1.1.1)"]
 
 [[package]]
+name = "pytimeparse2"
+version = "1.7.1"
+description = "Time expression parser."
+optional = false
+python-versions = ">=3.6"
+groups = ["main"]
+files = [
+    {file = "pytimeparse2-1.7.1-py3-none-any.whl", hash = "sha256:a162ea6a7707fd0bb82dd99556efb783935f51885c8bdced0fce3fffe85ab002"},
+    {file = "pytimeparse2-1.7.1.tar.gz", hash = "sha256:98668cdcba4890e1789e432e8ea0059ccf72402f13f5d52be15bdfaeb3a8b253"},
+]
+
+[package.extras]
+dateutil = ["python-dateutil (>=2.8.2,<2.9.0)"]
+
+[[package]]
 name = "pytokens"
 version = "0.4.1"
 description = "A Fast, spec compliant Python 3.14+ tokenizer that runs on older Pythons."
@@ -5021,4 +5036,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10, <3.14"
-content-hash = "b9cf3b55c29624b4eb7667345a9e9b520da27b9d59c333439c044c58c9c76b58"
+content-hash = "42b39b9ddfa5c725a05483b5699a5c3dff796184974c0d376802287597ed8028"

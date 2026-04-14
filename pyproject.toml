@@ -23,6 +23,7 @@ nonebot-plugin-alconna = ">=0.53.0"
 picimagesearch = "^3.12.11"
 py7zr = "^1.1.0"
 ehentaix = "^0.1.3"
+pytimeparse2 = "^1.7.1"
 
 [tool.poetry.group.dev.dependencies]
 nb-cli = "^1.4.2"

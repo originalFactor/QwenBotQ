@@ -136,11 +136,14 @@ async def get_nick(session_id: str, user_id: str, bot: Bot) -> str:
     return user_info["nickname"]
 
 
-def nick_getter() -> Callable[[str], Awaitable[str]]:
+nick_getter_type = Callable[[str], Awaitable[str]]
+
+
+def nick_getter() -> nick_getter_type:
     async def _nick_getter(
         session_id: Annotated[str, session_id_depends],
         bot: Bot,
-    ) -> Callable[[str], Awaitable[str]]:
+    ) -> nick_getter_type:
         async def _get_nick(user_id: str) -> str:
             return await get_nick(session_id, user_id, bot)
 
