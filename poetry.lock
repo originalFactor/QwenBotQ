@@ -200,14 +200,14 @@ files = [
 
 [[package]]
 name = "anyio"
-version = "4.12.1"
+version = "4.13.0"
 description = "High-level concurrency and networking framework on top of asyncio or Trio"
 optional = false
-python-versions = ">=3.9"
+python-versions = ">=3.10"
 groups = ["main", "dev"]
 files = [
-    {file = "anyio-4.12.1-py3-none-any.whl", hash = "sha256:d405828884fc140aa80a3c667b8beed277f1dfedec42ba031bd6ac3db606ab6c"},
-    {file = "anyio-4.12.1.tar.gz", hash = "sha256:41cfcc3a4c85d3f05c932da7c26d0201ac36f72abd4435ba90d0464a3ffed703"},
+    {file = "anyio-4.13.0-py3-none-any.whl", hash = "sha256:08b310f9e24a9594186fd75b4f73f4a4152069e3853f1ed8bfbf58369f4ad708"},
+    {file = "anyio-4.13.0.tar.gz", hash = "sha256:334b70e641fd2221c1505b3890c69882fe4a2df910cba14d97019b90b24439dc"},
 ]
 
 [package.dependencies]
@@ -216,7 +216,7 @@ idna = ">=2.8"
 typing_extensions = {version = ">=4.5", markers = "python_version < \"3.13\""}
 
 [package.extras]
-trio = ["trio (>=0.31.0) ; python_version < \"3.10\"", "trio (>=0.32.0) ; python_version >= \"3.10\""]
+trio = ["trio (>=0.32.0)"]
 
 [[package]]
 name = "apscheduler"
@@ -732,14 +732,14 @@ cffi = [
 
 [[package]]
 name = "cashews"
-version = "7.4.4"
+version = "7.5.0"
 description = "cache tools with async power"
 optional = false
-python-versions = ">=3.9"
+python-versions = ">=3.10"
 groups = ["dev"]
 files = [
-    {file = "cashews-7.4.4-py3-none-any.whl", hash = "sha256:d5b8fc3cb590ed388823388b972947fd5659e2a94109af107cb508a3240f5ef0"},
-    {file = "cashews-7.4.4.tar.gz", hash = "sha256:dca761c60192bfe354abd6e9eb98d6f62c817e675df3fbe7d1bdfaa4303d1320"},
+    {file = "cashews-7.5.0-py3-none-any.whl", hash = "sha256:e79cb4e5cc164d8f2d2856b166d45dcc2dd8d53b95874d2c6d07dfdb1c9ac3c4"},
+    {file = "cashews-7.5.0.tar.gz", hash = "sha256:3f88b8c5ced0ea4826915a1ff67055b647252dd65ef25f4813316a6341f00b37"},
 ]
 
 [package.extras]
@@ -748,7 +748,7 @@ diskcache = ["diskcache (>=5.0.0)"]
 lint = ["mypy (>=1.5.0)", "types-redis"]
 redis = ["redis (>=4.3.1,!=5.0.1)"]
 speedup = ["bitarray (<4.0.0)", "hiredis", "xxhash (<4.0.0)"]
-tests = ["hypothesis (==6.139.2)", "pytest (==8.4.2)", "pytest-asyncio (==1.1.0)", "pytest-cov (==6.2.1)", "pytest-randomly (==3.16.0)", "pytest-rerunfailures (==16.0.1)"]
+tests = ["hypothesis (==6.148.7)", "pytest (==9.0.2)", "pytest-asyncio (==1.3.0)", "pytest-cov (==7.0.0)", "pytest-randomly (==4.0.1)", "pytest-rerunfailures (==16.1)"]
 
 [[package]]
 name = "certifi"
@@ -1024,14 +1024,14 @@ files = [
 
 [[package]]
 name = "cookiecutter"
-version = "2.6.0"
+version = "2.7.1"
 description = "A command-line utility that creates projects from project templates, e.g. creating a Python package project from a Python package project template."
 optional = false
-python-versions = ">=3.7"
+python-versions = ">=3.10"
 groups = ["dev"]
 files = [
-    {file = "cookiecutter-2.6.0-py3-none-any.whl", hash = "sha256:a54a8e37995e4ed963b3e82831072d1ad4b005af736bb17b99c2cbd9d41b6e2d"},
-    {file = "cookiecutter-2.6.0.tar.gz", hash = "sha256:db21f8169ea4f4fdc2408d48ca44859349de2647fbe494a9d6c3edfc0542c21c"},
+    {file = "cookiecutter-2.7.1-py3-none-any.whl", hash = "sha256:cee50defc1eaa7ad0071ee9b9893b746c1b3201b66bf4d3686d0f127c8ed6cf9"},
+    {file = "cookiecutter-2.7.1.tar.gz", hash = "sha256:ca7bb7bc8c6ff441fbf53921b5537668000e38d56e28d763a1b73975c66c6138"},
 ]
 
 [package.dependencies]
@@ -1139,14 +1139,14 @@ test = ["pytest (>=6)"]
 
 [[package]]
 name = "filelock"
-version = "3.21.0"
+version = "3.28.0"
 description = "A platform independent file lock."
 optional = false
 python-versions = ">=3.10"
 groups = ["dev"]
 files = [
-    {file = "filelock-3.21.0-py3-none-any.whl", hash = "sha256:0f90eee4c62101243df3007db3cf8fc3ebf1bb13541d3e72c687d6e0f3f7d531"},
-    {file = "filelock-3.21.0.tar.gz", hash = "sha256:48c739c73c6fcacd381ed532226991150947c4a76dcd674f84d6807fd55dbaf2"},
+    {file = "filelock-3.28.0-py3-none-any.whl", hash = "sha256:de9af6712788e7171df1b28b15eba2446c69721433fa427a9bee07b17820a9db"},
+    {file = "filelock-3.28.0.tar.gz", hash = "sha256:4ed1010aae813c4ee8d9c660e4792475ee60c4a0ba76073ceaf862bd317e3ca6"},
 ]
 
 [[package]]
@@ -2511,35 +2511,35 @@ files = [
 
 [[package]]
 name = "nb-cli"
-version = "1.7.0"
+version = "1.7.3"
 description = "CLI for nonebot2"
 optional = false
 python-versions = "<4.0,>=3.10"
 groups = ["dev"]
 files = [
-    {file = "nb_cli-1.7.0-py3-none-any.whl", hash = "sha256:032605794f9ad3423db920963f0d957edfb1a47235f1e7dcc1eae7a547d1c35d"},
-    {file = "nb_cli-1.7.0.tar.gz", hash = "sha256:7acd31530070042ea5910d8b789b616d867216db34720726cc8a1587e4ed2740"},
+    {file = "nb_cli-1.7.3-py3-none-any.whl", hash = "sha256:31d51342bfcbd6b2fd4b04a03a76db60fb2b0aed91a67af88e7ed936af66f920"},
+    {file = "nb_cli-1.7.3.tar.gz", hash = "sha256:824a8af523934e9ecd1119bd551043a0ec80d9ad749765fe3a14c4f031bb50d0"},
 ]
 
 [package.dependencies]
-anyio = ">=3.6,<5.0"
-cashews = ">=6.0,<8.0"
-click = ">=8.1,<9.0"
-cookiecutter = ">=2.2,<3.0"
-httpx = ">=0.18,<1.0"
-jinja2 = ">=3.0,<4.0"
-noneprompt = ">=0.1.10,<1.0.0"
+anyio = ">=4.13.0,<5.0"
+cashews = ">=7.5.0,<8.0"
+click = ">=8.3,<9.0"
+cookiecutter = ">=2.7,<3.0"
+httpx = ">=0.28,<1.0"
+jinja2 = ">=3.1,<4.0"
+noneprompt = ">=0.1.11,<1.0"
 nonestorage = ">=0.1.0"
-packaging = ">=25.0"
-pip = ">=25.3"
+packaging = ">=26.0"
+pip = ">=26.0.1"
 pydantic = ">=1.10.0,<2.5.0 || >2.5.0,<2.5.1 || >2.5.1,<3.0.0"
-rich = ">=14.1.0"
-textual = ">=5.3.0"
-tomlkit = ">=0.10,<1.0"
-typing-extensions = ">=4.4,<5.0"
-virtualenv = ">=20.21,<21.0"
-watchfiles = ">=1.0,<2.0"
-wcwidth = ">=0.2,<1.0"
+rich = ">=14.3.3"
+textual = ">=8.2.1"
+tomlkit = ">=0.14.0,<0.15.0"
+typing-extensions = ">=4.15,<5.0"
+virtualenv = ">=21.2,<22.0"
+watchfiles = ">=1.1,<2.0"
+wcwidth = ">=0.6,<1.0"
 
 [[package]]
 name = "nepattern"
@@ -3888,6 +3888,26 @@ files = [
 six = ">=1.5"
 
 [[package]]
+name = "python-discovery"
+version = "1.2.2"
+description = "Python interpreter discovery"
+optional = false
+python-versions = ">=3.8"
+groups = ["dev"]
+files = [
+    {file = "python_discovery-1.2.2-py3-none-any.whl", hash = "sha256:e1ae95d9af875e78f15e19aed0c6137ab1bb49c200f21f5061786490c9585c7a"},
+    {file = "python_discovery-1.2.2.tar.gz", hash = "sha256:876e9c57139eb757cb5878cbdd9ae5379e5d96266c99ef731119e04fffe533bb"},
+]
+
+[package.dependencies]
+filelock = ">=3.15.4"
+platformdirs = ">=4.3.6,<5"
+
+[package.extras]
+docs = ["furo (>=2025.12.19)", "sphinx (>=9.1)", "sphinx-autodoc-typehints (>=3.6.3)", "sphinxcontrib-mermaid (>=2)"]
+testing = ["covdefaults (>=2.3)", "coverage (>=7.5.4)", "pytest (>=8.3.5)", "pytest-mock (>=3.14)", "setuptools (>=75.1)"]
+
+[[package]]
 name = "python-dotenv"
 version = "1.2.1"
 description = "Read key-value pairs from a .env file and set them as environment variables"
@@ -4170,14 +4190,14 @@ use-chardet-on-py3 = ["chardet (>=3.0.2,<6)"]
 
 [[package]]
 name = "rich"
-version = "14.3.2"
+version = "15.0.0"
 description = "Render rich text, tables, progress bars, syntax highlighting, markdown and more to the terminal"
 optional = false
-python-versions = ">=3.8.0"
+python-versions = ">=3.9.0"
 groups = ["dev"]
 files = [
-    {file = "rich-14.3.2-py3-none-any.whl", hash = "sha256:08e67c3e90884651da3239ea668222d19bea7b589149d8014a21c633420dbb69"},
-    {file = "rich-14.3.2.tar.gz", hash = "sha256:e712f11c1a562a11843306f5ed999475f09ac31ffb64281f73ab29ffdda8b3b8"},
+    {file = "rich-15.0.0-py3-none-any.whl", hash = "sha256:33bd4ef74232fb73fe9279a257718407f169c09b78a87ad3d296f548e27de0bb"},
+    {file = "rich-15.0.0.tar.gz", hash = "sha256:edd07a4824c6b40189fb7ac9bc4c52536e9780fbbfbddf6f1e2502c31b068c36"},
 ]
 
 [package.dependencies]
@@ -4485,14 +4505,14 @@ files = [
 
 [[package]]
 name = "textual"
-version = "7.5.0"
+version = "8.2.3"
 description = "Modern Text User Interface framework"
 optional = false
 python-versions = "<4.0,>=3.9"
 groups = ["dev"]
 files = [
-    {file = "textual-7.5.0-py3-none-any.whl", hash = "sha256:849dfee9d705eab3b2d07b33152b7bd74fb1f5056e002873cc448bce500c6374"},
-    {file = "textual-7.5.0.tar.gz", hash = "sha256:c730cba1e3d704e8f1ca915b6a3af01451e3bca380114baacf6abf87e9dac8b6"},
+    {file = "textual-8.2.3-py3-none-any.whl", hash = "sha256:5008ac581bebf1f6fa0520404261844a231e5715fdbddd10ca73916a3af48ca2"},
+    {file = "textual-8.2.3.tar.gz", hash = "sha256:beea7b86b03b03558a2224f0cc35252e60ef8b0c4353b117b2f40972902d976a"},
 ]
 
 [package.dependencies]
@@ -4703,25 +4723,22 @@ zstd = ["backports-zstd (>=1.0.0) ; python_version < \"3.14\""]
 
 [[package]]
 name = "virtualenv"
-version = "20.36.1"
+version = "21.2.4"
 description = "Virtual Python Environment builder"
 optional = false
 python-versions = ">=3.8"
 groups = ["dev"]
 files = [
-    {file = "virtualenv-20.36.1-py3-none-any.whl", hash = "sha256:575a8d6b124ef88f6f51d56d656132389f961062a9177016a50e4f507bbcc19f"},
-    {file = "virtualenv-20.36.1.tar.gz", hash = "sha256:8befb5c81842c641f8ee658481e42641c68b5eab3521d8e092d18320902466ba"},
+    {file = "virtualenv-21.2.4-py3-none-any.whl", hash = "sha256:29d21e941795206138d0f22f4e45ff7050e5da6c6472299fb7103318763861ac"},
+    {file = "virtualenv-21.2.4.tar.gz", hash = "sha256:b294ef68192638004d72524ce7ef303e9d0cf5a44c95ce2e54a7500a6381cada"},
 ]
 
 [package.dependencies]
 distlib = ">=0.3.7,<1"
-filelock = {version = ">=3.20.1,<4", markers = "python_version >= \"3.10\""}
+filelock = {version = ">=3.24.2,<4", markers = "python_version >= \"3.10\""}
 platformdirs = ">=3.9.1,<5"
+python-discovery = ">=1.2.2"
 typing-extensions = {version = ">=4.13.2", markers = "python_version < \"3.11\""}
-
-[package.extras]
-docs = ["furo (>=2023.7.26)", "proselint (>=0.13)", "sphinx (>=7.1.2,!=7.3)", "sphinx-argparse (>=0.4)", "sphinxcontrib-towncrier (>=0.2.1a0)", "towncrier (>=23.6)"]
-test = ["covdefaults (>=2.3)", "coverage (>=7.2.7)", "coverage-enable-subprocess (>=1)", "flaky (>=3.7)", "packaging (>=23.1)", "pytest (>=7.4)", "pytest-env (>=0.8.2)", "pytest-freezer (>=0.4.8) ; platform_python_implementation == \"PyPy\" or platform_python_implementation == \"GraalVM\" or platform_python_implementation == \"CPython\" and sys_platform == \"win32\" and python_version >= \"3.13\"", "pytest-mock (>=3.11.1)", "pytest-randomly (>=3.12)", "pytest-timeout (>=2.1)", "setuptools (>=68)", "time-machine (>=2.10) ; platform_python_implementation == \"CPython\""]
 
 [[package]]
 name = "watchfiles"
