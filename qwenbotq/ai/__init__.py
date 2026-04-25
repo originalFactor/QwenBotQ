@@ -26,7 +26,7 @@ from nonebot.adapters.onebot.v11 import (
 )
 from nonebot.adapters.onebot.v11.event import Reply
 from arclet.alconna import Alconna, Args, Option, Arparma
-from nonebot_plugin_alconna import on_alconna, Match
+from nonebot_plugin_alconna import MultiVar, on_alconna, Match
 
 # Local imports
 from .. import config
@@ -331,7 +331,7 @@ async def get_memory(
 # 添加智能体匹配器
 add_agent_cmd = Alconna(
     "添加智能体",
-    Args["agent_name?", str]["prompt?", str],
+    Args["agent_name?", str]["prompt?", MultiVar(str)],
     Option("--temperature|-t", Args["temperature", float], help_text="温度参数"),
     Option(
         "--frequency_penalty|-f", Args["frequency_penalty", float], help_text="频率惩罚"
@@ -348,7 +348,7 @@ AddAgentMatcher = on_alconna(add_agent_cmd, block=True)
 @AddAgentMatcher.handle()
 async def add_agent(
     agent_name: Match[str],
-    prompt: Match[str],
+    prompt: Match[tuple[str, ...]],
     arp: Arparma[Any],
 ) -> NoReturn:
     "添加智能体"
@@ -357,10 +357,11 @@ async def add_agent(
         await AddAgentMatcher.finish(
             "\n用法：添加智能体 <名称> <提示词> [选项]\n"
             "选项：\n"
-            "  -t/--temperature <值>        温度参数 (默认1.0)\n"
-            "  -f/--frequency_penalty <值>   频率惩罚 (默认0.0)\n"
-            "  -p/--presence_penalty <值>    存在惩罚 (默认0.0)\n"
-            "  -m/--max_tokens <值>          最大输出长度",
+            "  -t/--temperature <值> —— 温度参数 (默认1.0)\n"
+            "  -f/--frequency_penalty <值> —— 频率惩罚 (默认0.0)\n"
+            "  -p/--presence_penalty <值> —— 存在惩罚 (默认0.0)\n"
+            "  -m/--max_tokens <值> —— 最大输出长度\n"
+            "  -T/--thinking —— 是否开启思考模式 (默认False)\n",
             at_sender=True,
         )
 
@@ -371,7 +372,7 @@ async def add_agent(
     if existing:
         await AddAgentMatcher.finish("\n该智能体已存在。", at_sender=True)
 
-    agent = Agent(id=agent_name.result, prompt=prompt.result)
+    agent = Agent(id=agent_name.result, prompt=" ".join(prompt.result))
     if (t := arp.query[float]("temperature.temperature")) is not None:
         agent.temperature = t
     if (f := arp.query[float]("frequency_penalty.frequency_penalty")) is not None:
@@ -425,7 +426,7 @@ async def del_agent(
 edit_agent_cmd = Alconna(
     "修改智能体",
     Args["agent_name?", str],
-    Option("--prompt", Args["prompt", str], help_text="提示词"),
+    Option("--prompt", Args["prompt", MultiVar(str)], help_text="提示词"),
     Option("--temperature|-t", Args["temperature", float], help_text="温度参数"),
     Option(
         "--frequency_penalty|-f", Args["frequency_penalty", float], help_text="频率惩罚"
@@ -451,11 +452,12 @@ async def edit_agent(
         await EditAgentMatcher.finish(
             "\n用法：修改智能体 <名称> [选项]\n"
             "选项：\n"
-            "  --prompt <提示词>             修改提示词\n"
-            "  -t/--temperature <值>        温度参数\n"
-            "  -f/--frequency_penalty <值>   频率惩罚\n"
-            "  -p/--presence_penalty <值>    存在惩罚\n"
-            "  -m/--max_tokens <值>          最大输出长度",
+            "  --prompt <提示词> —— 修改提示词\n"
+            "  -t/--temperature <值> —— 温度参数\n"
+            "  -f/--frequency_penalty <值> —— 频率惩罚\n"
+            "  -p/--presence_penalty <值> —— 存在惩罚\n"
+            "  -m/--max_tokens <值> —— 最大输出长度\n"
+            "  -T/--thinking —— 是否开启思考模式 (默认False)\n",
             at_sender=True,
         )
 
@@ -467,8 +469,8 @@ async def edit_agent(
         await EditAgentMatcher.finish("\n该智能体不存在。", at_sender=True)
 
     updates: dict[str, str | float | int] = {}
-    if (pr := arp.query[str]("prompt.prompt")) is not None:
-        updates["prompt"] = pr
+    if (pr := arp.query[tuple[str, ...]]("prompt.prompt")) is not None:
+        updates["prompt"] = " ".join(pr)
     if (t := arp.query[float]("temperature.temperature")) is not None:
         updates["temperature"] = t
     if (f := arp.query[float]("frequency_penalty.frequency_penalty")) is not None:

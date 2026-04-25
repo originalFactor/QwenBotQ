@@ -10,6 +10,17 @@ from nonebot.matcher import Matcher
 from nonebot import on_command, on_request
 from nonebot.params import Depends
 from .bot_utils import nick_getter, nick_getter_type
+from .help import Help
+
+Help.append_help(
+    """
+【管理命令】
+!mute @用户 [原因] [-d 时长] — 禁言用户（默认1小时，0秒解除禁言）
+!kick @用户 [原因] [-b] — 踢出用户（-b 并封禁）
+!request approve|reject [原因] — 处理加群申请（需回复申请消息）
+!delete — 撤回消息（发送即撤回本身；若回复消息则一并撤回回复的消息）
+"""
+)
 
 get_user_args = Args["user?", At]["user_id?", int]
 reason_args = Args["reason?", str]
@@ -142,7 +153,7 @@ async def group_request(
     )
 
 
-process_alconna = Alconna("!request", Args["tp", str], Args["reason?", str])
+process_alconna = Alconna("!request", Args["tp?", str], Args["reason?", str])
 process_matcher = on_alconna(
     process_alconna, permission=SUPERUSER | GROUP_ADMIN | GROUP_OWNER
 )
@@ -170,7 +181,10 @@ async def process_request(
 
     # check if tp is approve or reject
     if not tp.available or tp.result not in ("approve", "reject"):
-        await process_matcher.finish("请回复申请消息", at_sender=True)
+        await process_matcher.finish(
+            "\n用法：!request approve|reject [原因]\n请先回复一条加群申请消息",
+            at_sender=True,
+        )
     approve = tp.result == "approve"
     r = reason.available and reason.result or "无"
 

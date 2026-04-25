@@ -3,7 +3,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-from typing import cast
+from typing import Awaitable, cast
 from mem0 import AsyncMemory, AsyncMemoryClient
 from nonebot import get_driver
 from nonebot.log import logger
@@ -12,12 +12,14 @@ from ..tools import make_client
 from qwenbotq.config_model.ai import CloudMemoryConfig
 
 from .. import config
-from ..help import HELP_TEXT
+from ..help import Help
 
-HELP_TEXT += """
+Help.append_help(
+    """
 清除记忆 — 清除当前会话记忆
 查看记忆 — 查看当前会话记忆
 """
+)
 
 assert config.ai and config.ai.memory
 
@@ -126,7 +128,7 @@ async def initialize_memory():
     global memory
     logger.info("正在初始化记忆系统...")
     logger.debug(f"记忆系统配置: {conf}")
-    memory = await AsyncMemory.from_config(conf)
+    memory = await cast(Awaitable[AsyncMemory], AsyncMemory.from_config(conf))
 
 
 @get_driver().on_shutdown

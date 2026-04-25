@@ -15,7 +15,7 @@ class Help:
 
     @classmethod
     def append_help(cls, msg: str) -> None:
-        cls.msg += f"\n\n{msg}"
+        cls.msg += f"{msg}"
 
 
 HelpMatcher = on_command("帮助", block=True)

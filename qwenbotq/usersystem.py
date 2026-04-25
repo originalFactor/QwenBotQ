@@ -24,14 +24,16 @@ from .bot_utils import (
     nick_getter,
 )
 from .database import User, buy_vip
-from .help import HELP_TEXT
+from .help import Help
 
-HELP_TEXT += """
+Help.append_help(
+    """
 【用户系统】
 签到 — 每日签到领取积分
 用户信息 [@用户] — 查看用户信息
 转账给 @用户 <积分数量> — 转账积分
 """
+)
 
 
 user_info_cmd = Alconna("用户信息", Args["target?", At])

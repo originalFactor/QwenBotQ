@@ -22,15 +22,17 @@ from nonebot.adapters.onebot.v11 import (
 from . import config
 from .database import User, apply_bind, BindRequest, get_biggest_coins
 from .bot_utils import require, get_user, get_nick, get_session_id, send_session
-from .help import HELP_TEXT
+from .help import Help
 
-HELP_TEXT += """
+Help.append_help(
+    """
 【绑定系统】
 今日老公 — 随机绑定今日老公
 换老公 — 解除当前绑定
 续期 [天数] — 续期当前绑定关系
 申请绑定 @用户 — 向指定用户申请绑定
 """
+)
 
 
 WifeMatcher = on_alconna(Alconna("今日老公"), block=True)

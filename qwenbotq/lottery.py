@@ -20,15 +20,17 @@ from nonebot_plugin_apscheduler import scheduler
 from . import config
 from .database import User, LotteryTicket
 from .bot_utils import require
-from .help import HELP_TEXT
+from .help import Help
 
-HELP_TEXT += """
+Help.append_help(
+    """
 【抽奖】
 购买奖号 <6位数字> — 花费积分购买奖号
 我的奖号 — 查看待开奖的奖号
 提前开奖 — 强制立即开奖（管理员）
 每天中午12:00自动开奖
 """
+)
 
 
 def get_nextday():

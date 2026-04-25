@@ -35,15 +35,18 @@ from py7zr import SevenZipFile
 from .. import config
 from ..bot_utils import get_flow_replies, Reply, reply_segment
 from ..tools import client
-from ..help import HELP_TEXT
+from ..help import Help
 from . import fileserver
 
-HELP_TEXT += """
+Help.append_help(
+    """
 【图片搜索】
 找本子 [图片] — 以图搜本
 下本子 <URL> — 下载本子
 搜本子 <关键词> [-l 数量] [-e] — 搜索本子
+下一页 — 查看搜索结果下一页（需回复搜索结果）
 """
+)
 
 if not isdir("downloads"):
     mkdir("downloads")
@@ -87,7 +90,7 @@ async def find_book(image: Match[Image]):
     await FindBookMatcher.finish()
 
 
-DownloadBookMatcher = on_alconna(Alconna("下本子", Args["url", "url"]), block=True)
+DownloadBookMatcher = on_alconna(Alconna("下本子", Args["url?", "url"]), block=True)
 
 
 @DownloadBookMatcher.handle()
