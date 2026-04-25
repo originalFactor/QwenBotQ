@@ -34,9 +34,10 @@ from ..database import User, get_vip, Agent
 from ..bot_utils import require, get_flow_replies, get_session_id, reply_segment
 from .tools import get_sysprompt, construct_history, tokenize
 from .core import chat
-from ..help import HELP_TEXT
+from ..help import Help
 
-HELP_TEXT += """
+Help.append_help(
+    """
 【AI 助手】
 @我 <消息> — 与 AI 对话
 设置系统提示词 <名称> — 切换智能体
@@ -47,6 +48,7 @@ HELP_TEXT += """
 修改智能体 <名称> [选项] — 修改智能体属性（管理员）
 续期vip <会话ID> <天数> — 续期 AI VIP（管理员）
 """
+)
 
 __all__ = []
 
@@ -112,16 +114,16 @@ async def llm(
             msg["content"] = msg["content"].replace(match.group(0), "")
             user.system_prompt = match.group(1)
 
-    system_prompt = await get_sysprompt(user.system_prompt)
+    agent = await get_sysprompt(user.system_prompt)
 
-    if not system_prompt:
+    if not agent:
         await user.set({User.system_prompt: "DEFAULT"})
         await LLMMatcher.send(
             "\n您的系统提示词配置有误，已自动重置为默认提示词。", at_sender=True
         )
-        system_prompt = await get_sysprompt("DEFAULT")
+        agent = await get_sysprompt("DEFAULT")
 
-    assert system_prompt
+    assert agent
 
     model = models[user.model]
     predicted_tokens = tokenize(messages)
@@ -143,7 +145,7 @@ async def llm(
         t0 = perf_counter()
         from .memory import get_memprompt
 
-        system_prompt.prompt += "\n" + await get_memprompt(session_id, prompt)
+        agent.prompt += "\n" + await get_memprompt(session_id, prompt)
         logger.debug(f"Memory search done!, cost: {(perf_counter() - t0) * 1000:.2f}ms")
 
     # 流式回复track
@@ -155,12 +157,13 @@ async def llm(
     try:
         async for paragraph in chat(
             user.model,
-            system_prompt.prompt,
+            agent.prompt,
             messages,
-            system_prompt.temperature,
-            system_prompt.frequency_penalty,
-            system_prompt.presence_penalty,
-            system_prompt.max_tokens,
+            agent.temperature,
+            agent.frequency_penalty,
+            agent.presence_penalty,
+            agent.max_tokens,
+            agent.thinking,
         ):
             logger.debug(f"Sending paragraph {para_no} with reply_id {reply_id}.")
             data = await LLMMatcher.send(
@@ -248,8 +251,7 @@ async def model_change(
                         for _ in config.ai.models.items()
                     ]
                 )
-            )
-            + "\n\n注：消耗计算方式：接口给出的消耗Token数/1000*倍率，消耗积分。",
+            ),
             at_sender=True,
         )
     await user.set({User.model: model_id.result})
@@ -338,6 +340,7 @@ add_agent_cmd = Alconna(
         "--presence_penalty|-p", Args["presence_penalty", float], help_text="存在惩罚"
     ),
     Option("--max_tokens|-m", Args["max_tokens", int], help_text="最大输出长度"),
+    Option("--thinking|-T", Args["thinking", bool], help_text="是否开启思考模式"),
 )
 AddAgentMatcher = on_alconna(add_agent_cmd, block=True)
 
@@ -377,6 +380,8 @@ async def add_agent(
         agent.presence_penalty = p
     if (m := arp.query[int]("max_tokens.max_tokens")) is not None:
         agent.max_tokens = m
+    if (t := arp.query[bool]("thinking.thinking")) is not None:
+        agent.thinking = t
     await agent.insert()
     await AddAgentMatcher.finish(
         f"\n已成功添加智能体 {agent_name.result}",
@@ -429,6 +434,7 @@ edit_agent_cmd = Alconna(
         "--presence_penalty|-p", Args["presence_penalty", float], help_text="存在惩罚"
     ),
     Option("--max_tokens|-m", Args["max_tokens", int], help_text="最大输出长度"),
+    Option("--thinking|-T", Args["thinking", bool], help_text="是否开启思考模式"),
 )
 EditAgentMatcher = on_alconna(edit_agent_cmd, block=True)
 
@@ -471,6 +477,8 @@ async def edit_agent(
         updates["presence_penalty"] = p
     if (m := arp.query[int]("max_tokens.max_tokens")) is not None:
         updates["max_tokens"] = m
+    if (t := arp.query[bool]("thinking.thinking")) is not None:
+        updates["thinking"] = t
 
     if not updates:
         await EditAgentMatcher.finish("\n请至少指定一个要修改的选项。", at_sender=True)

@@ -18,3 +18,4 @@ class Agent(Document):
     frequency_penalty: float = 0.0
     presence_penalty: float = 0.0
     max_tokens: int | None = None
+    thinking: bool = False

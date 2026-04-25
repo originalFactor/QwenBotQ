@@ -14,6 +14,7 @@ class AgentLike(BaseModel):
     frequency_penalty: float = 0.0
     presence_penalty: float = 0.0
     max_tokens: int | None = None
+    thinking: bool = False
 
 
 class LLMApiConfig(BaseModel):
@@ -73,6 +74,7 @@ class LocalMemoryConfig(BaseModel):
     embedder: LLMModelConfig
     qdrant: MemoryQdrantConfig = MemoryQdrantConfig()
     threshold: float = 0.8
+
 
 class CloudMemoryConfig(BaseModel):
     "云记忆配置"

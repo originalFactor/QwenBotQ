@@ -22,6 +22,7 @@ async def chat(
     frequency_penalty: float,
     presence_penalty: float,
     max_tokens: int | None,
+    thinking: bool,
 ) -> AsyncGenerator[tuple[str, list[dict]], Any]:
     assert config.ai
 
@@ -47,6 +48,9 @@ async def chat(
                     frequency_penalty=frequency_penalty,
                     presence_penalty=presence_penalty,
                     stream=True,
+                    extra_body={
+                        "thinking": {"type": "enabled" if thinking else "disabled"}
+                    },
                 )
             )
 
