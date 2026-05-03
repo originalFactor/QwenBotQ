@@ -7,5 +7,6 @@
   "licenser.license": "MIT",
   "python.analysis.typeCheckingMode": "basic",
   "basedpyright.analysis.diagnosticMode": "workspace",
-  "basedpyright.analysis.typeCheckingMode": "basic"
+  "basedpyright.analysis.typeCheckingMode": "basic",
+  "python.analysis.diagnosticMode": "workspace"
 }
