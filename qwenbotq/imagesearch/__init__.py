@@ -31,22 +31,20 @@ from nonebot.adapters.onebot.v11 import (
 from PicImageSearch import EHentai
 from ehentaix import EHentaiClient, santize_album_name
 from py7zr import SevenZipFile
+from httpx import AsyncClient
 
 from .. import config
 from ..bot_utils import get_flow_replies, Reply, reply_segment
-from ..tools import client
 from ..help import Help
 from . import fileserver
 
-Help.append_help(
-    """
+Help.append_help("""
 【图片搜索】
 找本子 [图片] — 以图搜本
 下本子 <URL> — 下载本子
 搜本子 <关键词> [-l 数量] [-e] — 搜索本子
 下一页 — 查看搜索结果下一页（需回复搜索结果）
-"""
-)
+""")
 
 if not isdir("downloads"):
     mkdir("downloads")
@@ -58,7 +56,7 @@ def cookies_format(cookies: str):
     }
 
 
-cookies = cookies_format(config.imagesearch.exhentai_cookies or "")
+cookies = cookies_format((config.imagesearch.exhentai_cookies or "").strip())
 
 
 FindBookMatcher = on_alconna(Alconna("找本子", Args["image?", Image]), block=True)
@@ -69,7 +67,8 @@ async def find_book(image: Match[Image]):
     if not image.available:
         await FindBookMatcher.finish("用法：找本子 [图片]", at_sender=True)
 
-    ex_cookie = config.imagesearch.exhentai_cookies
+    ex_cookie = (config.imagesearch.exhentai_cookies or "").strip()
+
     ehentai = EHentai(is_ex=bool(ex_cookie), cookies=ex_cookie, verify_ssl=False)
     res = await ehentai.search(url=image.result.url)
 
@@ -102,7 +101,7 @@ async def download_book(url: Match[str], bot: Bot, event: MessageEvent):
 
     uuid = uuid4().hex
 
-    async with client(cookies=cookies) as c:
+    async with AsyncClient(cookies=cookies) as c:
         ehentai = EHentaiClient(client=c)
         album_name = await ehentai.album(
             url.result,
@@ -148,7 +147,7 @@ async def _send_search_results(
     next: int | None = None,
 ):
     """发送搜索结果并记录上下文，返回最后一条消息的reply_id"""
-    async with client(cookies=cookies) as c:
+    async with AsyncClient(cookies=cookies) as c:
         ehentai = EHentaiClient(client=c)
         res = await ehentai.search(query=query, exhentai=exh, next=next)
 

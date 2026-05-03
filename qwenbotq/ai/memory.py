@@ -7,19 +7,17 @@ from typing import Awaitable, cast
 from mem0 import AsyncMemory, AsyncMemoryClient
 from nonebot import get_driver
 from nonebot.log import logger
-from ..tools import make_client
+from httpx import AsyncClient
 
 from qwenbotq.config_model.ai import CloudMemoryConfig
 
 from .. import config
 from ..help import Help
 
-Help.append_help(
-    """
+Help.append_help("""
 清除记忆 — 清除当前会话记忆
 查看记忆 — 查看当前会话记忆
-"""
-)
+""")
 
 assert config.ai and config.ai.memory
 
@@ -28,7 +26,7 @@ memory: AsyncMemory | AsyncMemoryClient | None = None
 
 
 if isinstance(memconf, CloudMemoryConfig):
-    client = make_client()
+    client = AsyncClient()
     memory = AsyncMemoryClient(memconf.api_key, client=client)
 else:
     conf = {

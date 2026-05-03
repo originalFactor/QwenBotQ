@@ -8,9 +8,9 @@ from typing import Any
 
 from openai import AsyncOpenAI, AsyncStream
 from openai.types.chat import ChatCompletionChunk
+from httpx import AsyncClient
 
 from .. import config
-from ..tools import client
 from .calls import get_tool_prompts, calling_vacumm, process_calls
 
 
@@ -31,7 +31,7 @@ async def chat(
     tools = get_tool_prompts()
     messages.insert(0, {"role": "system", "content": system})
 
-    async with client() as httpClient:
+    async with AsyncClient() as httpClient:
         openai = AsyncOpenAI(
             base_url=api.base, api_key=api.token, http_client=httpClient
         )
@@ -51,6 +51,7 @@ async def chat(
                     extra_body={
                         "thinking": {"type": "enabled" if thinking else "disabled"}
                     },
+                    user="QwenBotQ",
                 )
             )
 

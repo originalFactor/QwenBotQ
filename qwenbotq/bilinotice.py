@@ -6,14 +6,13 @@
 
 "BiliBili动态提醒服务"
 
-from http import HTTPStatus
 from typing import Any
 from collections.abc import Sequence, Mapping
 from urllib.error import HTTPError
 from asyncio import sleep
 from datetime import datetime, timedelta
 
-from aiohttp import ClientSession
+from httpx import AsyncClient
 from nonebot import get_bot, get_driver
 from nonebot.log import logger
 from nonebot.adapters.onebot.v11 import Bot, Message, MessageSegment
@@ -21,37 +20,43 @@ from nonebot_plugin_apscheduler import scheduler
 
 from . import config
 from .database import SubscribeStatus
+from .nonesafe import NoneSafeDict
 
 
 async def notice(
-    message: Message | str, users: Sequence[str], groups: Sequence[str]
+    message: Message | str, users: Sequence[int], groups: Sequence[int]
 ) -> None:
     "消息提醒"
     bot: Bot = get_bot()  # type: ignore
     for user in users:
-        await bot.send_msg(user_id=int(user), message=message)
+        await bot.send_msg(user_id=user, message=message)
     for group in groups:
-        await bot.send_msg(group_id=int(group), message=message)
+        await bot.send_msg(group_id=group, message=message)
 
 
 VALID_GET_PARAM_TYPES = float | int | str
 
 
 async def api_request(
-    session: ClientSession,
     endpoint: str,
     params: Mapping[str, VALID_GET_PARAM_TYPES | Sequence[VALID_GET_PARAM_TYPES]],
-) -> dict | None:
+) -> NoneSafeDict | None:
     "请求API接口"
+    assert config.focus
     try:
-        async with session.get(endpoint, params=params) as resp:
-            if resp.status != HTTPStatus.OK:
-                logger.error(
-                    f"Server returned an invalid HTTP status code: {resp.status}"
-                )
-                return None
-            logger.debug(f"API returned result: {await resp.text()}")
-            response = await resp.json()
+        async with AsyncClient() as httpClient:
+            resp = await httpClient.get(
+                url=endpoint,
+                params=params,
+                cookies={"SESSDATA": config.focus.sessdata.strip()},
+                headers={
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:132.0) "
+                    "Gecko/20100101 Firefox/132.0"
+                },
+            )
+            resp.raise_for_status()
+            logger.debug(f"API returned result: {resp.text}")
+            response = NoneSafeDict(resp.json())
     except HTTPError as e:
         logger.error(f"Network error during requesting bilibili: {e}")
         return None
@@ -61,7 +66,7 @@ async def api_request(
     return response
 
 
-async def parse_item(item: Mapping[str, Any]) -> Message | str | None:
+async def parse_item(item: NoneSafeDict) -> Message | str | None:
     "渲染动态"
     _type = item["type"]
     module = item["modules"]
@@ -99,7 +104,7 @@ async def parse_item(item: Mapping[str, Any]) -> Message | str | None:
     return None
 
 
-async def check_and_push(session: ClientSession) -> None:
+async def check_and_push() -> None:
     "定期检查并推送动态及直播"
     logger.info("动态和直播推送开始检查……")
     assert config.focus
@@ -115,7 +120,6 @@ async def check_and_push(session: ClientSession) -> None:
         while has_more:
             if not (
                 response := await api_request(
-                    session,
                     "https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/all",
                     {"host_mid": focus.uid, "offset": offset},
                 )
@@ -133,16 +137,25 @@ async def check_and_push(session: ClientSession) -> None:
                 if int(item["id_str"]) <= status.last_update:
                     has_more = False
                     break
-                if _ := await parse_item(item):
-                    logger.info(f"找到一条新动态：\n{_}")
-                    await notice(_, focus.users, focus.groups)
+                item_msg = await parse_item(item)
+                if status.last_update:
+                    if item_msg:
+                        logger.info(f"找到一条新动态：\n{item_msg}")
+                        await notice(item_msg, focus.users, focus.groups)
+                    else:
+                        logger.info(f"动态 {item['id_str']} 未渲染成功")
+                else:
+                    if item_msg:
+                        logger.info(f"找到一条新动态（跳过推送）：\n{item_msg}")
+                    else:
+                        logger.info(f"动态 {item['id_str']} 未渲染成功（跳过推送）")
+
             await sleep(3)
         if last_update:
             await status.set({SubscribeStatus.last_update: int(last_update)})
         logger.info(f"动态检查完毕，最后一条动态的id：{last_update}")
         logger.info("开始检查直播")
         if response := await api_request(
-            session,
             "https://api.live.bilibili.com/room/v1/Room/get_status_info_by_uids",
             {"uids[]": [focus.uid]},
         ):
@@ -165,34 +178,17 @@ async def check_and_push(session: ClientSession) -> None:
     logger.info("动态和直播推送检查完毕")
 
 
-pool: list[ClientSession] = []
+pool: list[AsyncClient] = []
 
 
 @get_driver().on_startup
 async def on_startup() -> None:
     "注册计划任务"
     if config.focus:
-        pool.append(
-            ClientSession(
-                cookies={"SESSDATA": config.focus.sessdata},
-                headers={
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:132.0) "
-                    "Gecko/20100101 Firefox/132.0"
-                },
-            )
-        )
         logger.info(f"注册了计划任务，参数 {config.focus.interval}")
         scheduler.add_job(
             check_and_push,
             "interval",
-            kwargs={"session": pool[-1]},
             start_date=datetime.now() + timedelta(minutes=1),
             **config.focus.interval,  # type: ignore
         )
-
-
-@get_driver().on_shutdown
-async def on_shutdown() -> None:
-    "关闭客户端session"
-    for session in pool:
-        await session.close()

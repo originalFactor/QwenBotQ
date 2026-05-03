@@ -13,9 +13,9 @@ from pydantic import BaseModel
 class Focus(BaseModel):
     "订阅"
 
-    uid: str
-    groups: list[str] = []
-    users: list[str] = []
+    uid: int
+    groups: list[int] = []
+    users: list[int] = []
 
 
 class FocusOptions(BaseModel):

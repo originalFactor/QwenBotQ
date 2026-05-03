@@ -3,8 +3,8 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
+from httpx import AsyncClient
 from ... import config
-from ...tools import client
 
 __all__ = ["web_search", "WEB_SEARCH_PROMPT"]
 
@@ -66,7 +66,7 @@ async def web_search(
         "count": count,
     }
 
-    async with client() as httpClient:
+    async with AsyncClient() as httpClient:
         resp = await httpClient.post(url=bocha.endpoint, headers=headers, json=payload)
         resp.raise_for_status()
         data = resp.json()["data"]
