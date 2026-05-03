@@ -5,7 +5,17 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python 调试程序:",
+            "name": "不代理",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/bot.py",
+            "console": "integratedTerminal",
+            "env": {
+                "LOG_LEVEL": "DEBUG",
+            }
+        },
+        {
+            "name": "Clash 代理",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/bot.py",
@@ -14,6 +24,18 @@
                 "LOG_LEVEL": "DEBUG",
                 "HTTP_PROXY": "http://127.0.0.1:7897",
                 "HTTPS_PROXY": "http://127.0.0.1:7897"
+            }
+        },
+        {
+            "name": "Reqable 代理",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/bot.py",
+            "console": "integratedTerminal",
+            "env": {
+                "LOG_LEVEL": "DEBUG",
+                "HTTP_PROXY": "http://127.0.0.1:9434",
+                "HTTPS_PROXY": "http://127.0.0.1:9434"
             }
         }
     ]
