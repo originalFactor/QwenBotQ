@@ -3210,14 +3210,14 @@ reference = "mirrors"
 
 [[package]]
 name = "openai"
-version = "2.38.0"
+version = "2.41.0"
 description = "The official Python library for the openai API"
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "openai-2.38.0-py3-none-any.whl", hash = "sha256:ec6661c57b2dcc47414a767e6e3335c7ed3d19c9696999283a3c82e95c756a3c"},
-    {file = "openai-2.38.0.tar.gz", hash = "sha256:798694c6cf74145541fda94325b6f8f72d8e1fd0262cc137c8d728177a6a4ce3"},
+    {file = "openai-2.41.0-py3-none-any.whl", hash = "sha256:20cc7952e8501c7e5773dd2ef7be437bae9cb549044902e1041a83a54516e375"},
+    {file = "openai-2.41.0.tar.gz", hash = "sha256:db5c362acd6604b84f076abbefa66826ea4b46ecba2954ed866e6a149a1352c0"},
 ]
 
 [package.dependencies]
