@@ -3,10 +3,12 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
+
 from os import mkdir, rmdir, remove
 from os.path import isdir
 from typing import Annotated
 from uuid import uuid4
+from importlib import import_module
 import re
 
 from nonebot import on_command
@@ -36,7 +38,8 @@ from httpx import AsyncClient
 from .. import config
 from ..bot_utils import get_flow_replies, Reply, reply_segment
 from ..help import Help
-from . import fileserver
+
+import_module(".fileserver", __package__)
 
 Help.append_help("""
 【图片搜索】
@@ -117,16 +120,19 @@ async def download_book(url: Match[str], bot: Bot, event: MessageEvent):
 
     await DownloadBookMatcher.send(f"\n{album_name}打包完成，上传中", at_sender=True)
 
+    host = config.imagesearch.remote_host
+    port = config.imagesearch.remote_port or config.imagesearch.file_server_port
+
     if isinstance(event, GroupMessageEvent):
         await bot.upload_group_file(
             group_id=event.group_id,
-            file=f"http://host.docker.internal:{config.imagesearch.file_server_port}/{uuid}.7z",
+            file=f"http://{host}:{port}/{uuid}.7z",
             name=f"{album_filename}.7z",
         )
     else:
         await bot.upload_private_file(
             user_id=event.user_id,
-            file=f"http://host.docker.internal:{config.imagesearch.file_server_port}/{uuid}.7z",
+            file=f"http://{host}:{port}/{uuid}.7z",
             name=f"{album_filename}.7z",
         )
 
@@ -157,9 +163,7 @@ async def _send_search_results(
     reply_id = msgId
     for g in res.galleries[:limit]:
         data = await matcher.send(
-            reply_segment(reply_id)
-            + MessageSegment.image(await g.thumbnail())
-            + f"\n{g.title}"
+            reply_segment(reply_id) + MessageSegment.image(g.thumbnail) + f"\n{g.title}"
             f"\n{g.type} ⭐{g.rate} {g.published:%Y-%m-%d}"
             f'\n{" ".join(g.tags)}'
             f"\n{g.url}",

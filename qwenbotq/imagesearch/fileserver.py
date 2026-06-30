@@ -5,6 +5,8 @@
 
 from aiohttp import web
 from nonebot import get_driver
+from os.path import isdir
+from os import mkdir
 from .. import config
 
 __all__ = []
@@ -12,6 +14,8 @@ __all__ = []
 
 def create_app() -> web.Application:
     app = web.Application()
+    if not isdir("downloads"):
+        mkdir("downloads")
     app.router.add_static("/", "downloads")
     return app
 

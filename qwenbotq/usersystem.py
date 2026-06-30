@@ -25,15 +25,14 @@ from .bot_utils import (
 )
 from .database import User, buy_vip
 from .help import Help
+from .utils import avatar
 
-Help.append_help(
-    """
+Help.append_help("""
 【用户系统】
 签到 — 每日签到领取积分
 用户信息 [@用户] — 查看用户信息
 转账给 @用户 <积分数量> — 转账积分
-"""
-)
+""")
 
 
 user_info_cmd = Alconna("用户信息", Args["target?", At])
@@ -73,7 +72,7 @@ async def get_information(
         + f"使用模型：{user.model}\n"
         f"\t系统提示词：{(_ := user.system_prompt)[:min(len(_), 10)]}...\n"
         "头像："
-        + MessageSegment.image(f"https://q1.qlogo.cn/g?b=qq&nk={user.id}&s=5")
+        + MessageSegment.image(avatar(user.id))
         + "本日老公："
         + (
             f"{cp_info[0]} ({cp_info[1]})\n" f"\t失效日期：{cp_info[2]}"

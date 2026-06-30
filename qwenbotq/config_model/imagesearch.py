@@ -11,3 +11,5 @@ class ImageSearchConfig(BaseModel):
 
     exhentai_cookies: str | None = None
     file_server_port: int = 9080
+    remote_host: str = "host.docker.internal"
+    remote_port: int | None = None

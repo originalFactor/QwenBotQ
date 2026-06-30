@@ -6,7 +6,6 @@
 
 "BiliBili动态提醒服务"
 
-from typing import Any
 from collections.abc import Sequence, Mapping
 from urllib.error import HTTPError
 from asyncio import sleep
@@ -17,10 +16,10 @@ from nonebot import get_bot, get_driver
 from nonebot.log import logger
 from nonebot.adapters.onebot.v11 import Bot, Message, MessageSegment
 from nonebot_plugin_apscheduler import scheduler
+from nonesafe_ex import NoneSafeDict
 
 from . import config
 from .database import SubscribeStatus
-from .nonesafe import NoneSafeDict
 
 
 async def notice(
