@@ -96,7 +96,12 @@ lottery:
   ticket_price: 200 # 每注价格
   reward_per_match: 200 # 每匹配一位的奖励
 
+# ============ 文件服务器配置（供 OneBot/QQ 端拉取文件） ============
+fileserver:
+  file_server_port: 9080 # 文件服务器本地绑定端口
+  remote_host: host.docker.internal # OneBot 端可访问的主机（跨机器需改为公网/可路由地址）
+  remote_port: null # 远程端口（可选，默认同 file_server_port）
+
 # ============ 图片搜索配置 ============
 imagesearch:
   exhentai_cookies: null # ExHentai Cookies（可选，不填则无法搜索ExHentai）
-  file_server_port: 9080 # 文件服务器端口

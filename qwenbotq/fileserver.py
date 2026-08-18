@@ -7,7 +7,7 @@ from aiohttp import web
 from nonebot import get_driver
 from os.path import isdir
 from os import mkdir
-from .. import config
+from . import config
 
 __all__ = []
 
@@ -26,7 +26,7 @@ runner = web.AppRunner(create_app())
 @get_driver().on_startup
 async def _start():
     await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", config.imagesearch.file_server_port)
+    site = web.TCPSite(runner, "0.0.0.0", config.fileserver.file_server_port)
     await site.start()
 
 

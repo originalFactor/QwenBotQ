@@ -17,6 +17,7 @@ from .focus import FocusOptions
 from .price import PriceConfig
 from .lottery import LotteryConfig
 from .imagesearch import ImageSearchConfig
+from .fileserver import FileServerConfig
 
 
 class Config(BaseModel):
@@ -31,6 +32,7 @@ class Config(BaseModel):
     focus: FocusOptions | None = None  # 关注配置
     lottery: LotteryConfig = LotteryConfig()  # 抽奖配置
     imagesearch: ImageSearchConfig = ImageSearchConfig()  # 图片搜索配置
+    fileserver: FileServerConfig = FileServerConfig()  # 文件服务器配置
 
 
 def get_config() -> Config:

@@ -24,6 +24,8 @@ config = get_config()
 
 # fixed features
 require("nonebot_plugin_alconna")
+require("nonebot_plugin_apscheduler")
+import_module(".fileserver", __package__)
 import_module(".binding", __package__)
 import_module(".usersystem", __package__)
 import_module(".imagesearch", __package__)
@@ -31,8 +33,6 @@ import_module(".superuser", __package__)
 import_module(".imagecache", __package__)
 
 # optional features
-if config.focus or config.lottery:
-    require("nonebot_plugin_apscheduler")
 if config.ai:
     import_module(".ai", __package__)
     if config.ai.memory:
