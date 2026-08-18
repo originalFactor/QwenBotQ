@@ -1,7 +1,9 @@
+.ruff_cache/
 .hypothesis/
 .kiro/
 .pytest_cache/
 db/
+downloads/
 **/__pycache__/
 tests/
 .env.prod
