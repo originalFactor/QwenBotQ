@@ -30,8 +30,8 @@ from nonebot.adapters.onebot.v11 import (
 )
 
 # local imports
-from .. import config
-from ..help import Help
+from . import config
+from .help import Help
 from .database.imagecache import ImageCache
 
 __all__ = []
