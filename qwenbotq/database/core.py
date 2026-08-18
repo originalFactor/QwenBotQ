@@ -38,7 +38,15 @@ class Mongo:
 
 require_inject: list[Callable[[], None | Awaitable[None]]] = []
 
-from . import subscribe, user, vip, agents, lottery, bindrequest, imagecache
+from . import (
+    subscribe,
+    user,
+    vip,
+    agents,
+    lottery,
+    bindrequest,
+    recalloffset,
+)
 
 
 @get_driver().on_startup

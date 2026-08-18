@@ -6,43 +6,46 @@
 "图片缓存功能"
 
 # standard imports
-import asyncio
+import base64
 import os
+import time
 import zipfile
 from os.path import isdir, isfile
-from datetime import datetime, timedelta
-from pathlib import Path
 from uuid import uuid4
 
 # external imports
 import httpx
-from nonebot import on_message, on_notice, on_command, get_driver
-from nonebot.log import logger
-from nonebot.permission import SUPERUSER
-from nonebot.rule import Rule
+from bson import ObjectId
+from nonebot import get_driver, on_command, on_message, on_notice
 from nonebot.adapters.onebot.v11 import (
+    Bot,
+    FriendRecallNoticeEvent,
+    GroupRecallNoticeEvent,
+    Message,
     MessageEvent,
     MessageSegment,
     PrivateMessageEvent,
-    Bot,
-    GroupRecallNoticeEvent,
-    FriendRecallNoticeEvent,
 )
+from nonebot.log import logger
+from nonebot.permission import SUPERUSER
+from nonebot.rule import Rule
+from nonebot_plugin_apscheduler import scheduler
 
 # local imports
 from . import config
+from .bot_utils import at_sender
+from .database.recalloffset import get_recall_offset, set_recall_offset
 from .help import Help
-from .database.imagecache import ImageCache
 
 __all__ = []
 
-Help.append_superuser_help(
-    """
+Help.append_superuser_help("""
 【撤回图片】
-getrecalls — 获取当前保存的所有已撤回图片
-delrecalls — 删除当前保存的所有已撤回图片
-"""
-)
+!getrecalls — 获取已读偏移之后的新撤回图片（多条一并发送）
+!getrecallszip — 将已读偏移之后的新撤回图片打包为zip获取
+!setrecalloffset <偏移> — 手动指定已读偏移
+!delrecalls — 删除当前保存的所有已撤回图片
+""")
 
 # 缓存目录与保留天数
 CACHE_DIR = "downloads/cache"  # 正常缓存目录
@@ -78,22 +81,16 @@ async def cache_images(event: MessageEvent) -> None:
         if not url:
             continue
 
-        ext = Path(url.split("?")[0]).suffix or ".img"
-        rec = ImageCache(message_id=event.message_id)
-        await rec.insert()
-
-        path = f"{CACHE_DIR}/{rec.id}{ext}"
+        # 文件名含消息ID便于撤回时匹配；扩展名固定为 jpg
+        path = f"{CACHE_DIR}/{event.message_id}_{uuid4().hex}.jpg"
         try:
             async with httpx.AsyncClient(timeout=30) as client:
                 content = (await client.get(url)).content
             with open(path, "wb") as f:
                 f.write(content)
-            rec.path = path
-            await rec.save()
             logger.debug(f"已缓存图片 {path}（消息 {event.message_id}）")
         except Exception as e:
             logger.warning(f"图片缓存失败（消息 {event.message_id}）：{e}")
-            await rec.delete()
 
 
 # 撤回事件匹配器
@@ -107,20 +104,20 @@ async def on_recall(event) -> None:
     if not isinstance(event, (GroupRecallNoticeEvent, FriendRecallNoticeEvent)):
         return
 
+    prefix = f"{event.message_id}_"
     moved: list[str] = []
-    async for rec in ImageCache.find({"message_id": event.message_id}):
-        if rec.recalled:
+    for f in os.listdir(CACHE_DIR):
+        if not f.startswith(prefix):
             continue
-        old = rec.path
-        new = f"{RECALLED_DIR}/{Path(old).name}"
+        old = os.path.join(CACHE_DIR, f)
+        if not isfile(old):
+            continue
+        # 重命名为 ObjectId，避免文件名带 message_id 导致的排序顺序问题；其字典序即时间序（进程内单调）
+        new = os.path.join(RECALLED_DIR, f"{str(ObjectId())}.jpg")
         try:
-            if isfile(old):
-                os.rename(old, new)
-            rec.recalled = True
-            rec.path = new
-            await rec.save()
+            os.rename(old, new)
             moved.append(new)
-        except Exception as e:
+        except OSError as e:
             logger.warning(f"转移撤回图片失败（消息 {event.message_id}）：{e}")
 
     if moved:
@@ -129,42 +126,42 @@ async def on_recall(event) -> None:
         )
 
 
-async def cleanup_expired() -> None:
-    "删除超过保留天数的未撤回缓存图片"
+async def cleanup_cache() -> None:
+    "按文件修改时间删除超过保留天数的未撤回缓存图片"
 
-    cutoff = datetime.now() - timedelta(days=EXPIRE_DAYS)
-    async for rec in ImageCache.find({"recalled": False, "created_at": {"$lt": cutoff}}):
+    cutoff = time.time() - EXPIRE_DAYS * 86400
+    for f in os.listdir(CACHE_DIR):
+        p = os.path.join(CACHE_DIR, f)
+        if not isfile(p) or os.path.getmtime(p) >= cutoff:
+            continue
         try:
-            if rec.path and isfile(rec.path):
-                os.remove(rec.path)
-            await rec.delete()
-        except Exception as e:
-            logger.warning(f"删除过期缓存图片失败（{rec.path}）：{e}")
-
-
-async def _cleanup_loop() -> None:
-    "周期清理过期缓存图片"
-    while True:
-        try:
-            await cleanup_expired()
-        except Exception as e:
-            logger.warning(f"清理图片缓存任务失败：{e}")
-        await asyncio.sleep(CLEAN_INTERVAL)
+            os.remove(p)
+        except OSError as e:
+            logger.warning(f"删除过期缓存图片失败（{p}）：{e}")
 
 
 @get_driver().on_startup
-async def _start_cleanup() -> None:
-    "启动清理任务"
-    asyncio.create_task(_cleanup_loop())
-    logger.info("图片缓存功能已启用，缓存目录：%s", CACHE_DIR)
+async def _register_cleanup_job() -> None:
+    "注册图片缓存清理定时任务，并先执行一次"
+    await cleanup_cache()
+    scheduler.add_job(
+        cleanup_cache,
+        "interval",
+        seconds=CLEAN_INTERVAL,
+        id="imagecache_cleanup",
+        replace_existing=True,
+    )
+    logger.info(
+        "图片缓存功能已启用，缓存目录：%s，清理间隔：%ss", CACHE_DIR, CLEAN_INTERVAL
+    )
 
 
 # ===== SUPERUSER 私聊管理命令 =====
 _private_rule = Rule(lambda event: isinstance(event, PrivateMessageEvent))
 
-# getrecalls：获取当前保存的所有已撤回图片
+# !getrecalls：获取当前保存的所有已撤回图片
 GetRecallsMatcher = on_command(
-    "getrecalls",
+    "!getrecalls",
     rule=_private_rule,
     permission=SUPERUSER,
     priority=1,
@@ -173,48 +170,91 @@ GetRecallsMatcher = on_command(
 
 
 @GetRecallsMatcher.handle()
-async def get_recalls(bot: Bot, event: PrivateMessageEvent) -> None:
-    "发送所有已撤回图片；多张自动打包为 zip 上传"
+async def get_recalls(event: PrivateMessageEvent) -> None:
+    "获取已读偏移之后的新撤回图片；以多条图片一并发送"
 
     files = sorted(
         f for f in os.listdir(RECALLED_DIR) if isfile(os.path.join(RECALLED_DIR, f))
     )
-    if not files:
-        await GetRecallsMatcher.finish("\n暂无已撤回的图片", at_sender=True)
+    offset = await get_recall_offset(str(event.user_id))
+    new_files = files[offset:]
 
-    host = config.imagesearch.remote_host
-    port = config.imagesearch.remote_port or config.imagesearch.file_server_port
+    if not new_files:
+        await GetRecallsMatcher.finish(
+            f"\n暂无新的撤回图片（当前已读偏移 {offset}/{len(files)}）",
+            at_sender=at_sender(event),
+        )
 
-    # 单张图片直接发送
-    if len(files) == 1:
-        url = f"http://{host}:{port}/recalled/{files[0]}"
-        await GetRecallsMatcher.send(MessageSegment.image(url), at_sender=True)
-        await GetRecallsMatcher.finish("\n已发送该撤回图片", at_sender=True)
+    # 内联 base64 图片，无需服务器，跨机器亦可
+    msg = Message()
+    for f in new_files:
+        with open(os.path.join(RECALLED_DIR, f), "rb") as fh:
+            data = base64.b64encode(fh.read()).decode()
+        msg += MessageSegment.image(f"base64://{data}")
 
-    # 多张图片打包 zip 后作为文件上传
+    await GetRecallsMatcher.send(msg, at_sender=at_sender(event))
+    await set_recall_offset(str(event.user_id), len(files))
+    await GetRecallsMatcher.finish(
+        f"\n已发送 {len(new_files)} 张撤回图片；新偏移 {len(files)}",
+        at_sender=at_sender(event),
+    )
+
+
+# !getrecallszip：将新撤回图片打包为 zip 获取
+GetRecallsZipMatcher = on_command(
+    "!getrecallszip",
+    rule=_private_rule,
+    permission=SUPERUSER,
+    priority=1,
+    block=True,
+)
+
+
+@GetRecallsZipMatcher.handle()
+async def get_recalls_zip(bot: Bot, event: PrivateMessageEvent) -> None:
+    "获取已读偏移之后的新撤回图片；打包为 zip 上传"
+
+    files = sorted(
+        f for f in os.listdir(RECALLED_DIR) if isfile(os.path.join(RECALLED_DIR, f))
+    )
+    offset = await get_recall_offset(str(event.user_id))
+    new_files = files[offset:]
+
+    if not new_files:
+        await GetRecallsZipMatcher.finish(
+            f"\n暂无新的撤回图片（当前已读偏移 {offset}/{len(files)}）",
+            at_sender=at_sender(event),
+        )
+
+    # 与图片搜索一致：使用全局可达的文件服务器地址供 OneBot 拉取（跨机器）
+    host = config.fileserver.remote_host
+    port = config.fileserver.remote_port or config.fileserver.file_server_port
+
     zip_name = f"recalls_{uuid4().hex}.zip"
     zip_path = os.path.join("downloads", zip_name)
     try:
         with zipfile.ZipFile(zip_path, "w") as zf:
-            for f in files:
+            for f in new_files:
                 zf.write(os.path.join(RECALLED_DIR, f), arcname=f)
         await bot.upload_private_file(
             user_id=event.user_id,
             file=f"http://{host}:{port}/{zip_name}",
             name="recalls.zip",
         )
+        await set_recall_offset(str(event.user_id), len(files))
     finally:
         if os.path.isfile(zip_path):
             os.remove(zip_path)
 
-    await GetRecallsMatcher.finish(
-        f"\n已将 {len(files)} 张撤回图片打包上传", at_sender=True
+    await GetRecallsZipMatcher.finish(
+        f"\n已将 {len(new_files)} 张撤回图片打包上传；新偏移 {len(files)}",
+        at_sender=at_sender(event),
     )
 
 
-# delrecalls：删除当前保存的所有已撤回图片
+# !delrecalls：删除当前保存的所有已撤回图片
 DelRecallsMatcher = on_command(
-    "delrecalls",
+    "!delrecalls",
     rule=_private_rule,
     permission=SUPERUSER,
     priority=1,
@@ -233,7 +273,44 @@ async def del_recalls(event: PrivateMessageEvent) -> None:
             os.remove(p)
             deleted += 1
 
-    # 同步删除数据库中的撤回记录
-    await ImageCache.find({"recalled": True}).delete()
+    await DelRecallsMatcher.finish(
+        f"\n已删除 {deleted} 张撤回图片", at_sender=at_sender(event)
+    )
 
-    await DelRecallsMatcher.finish(f"\n已删除 {deleted} 张撤回图片", at_sender=True)
+
+# !setrecalloffset：手动指定已读偏移
+SetRecallOffsetMatcher = on_command(
+    "!setrecalloffset",
+    rule=_private_rule,
+    permission=SUPERUSER,
+    priority=1,
+    block=True,
+)
+
+
+@SetRecallOffsetMatcher.handle()
+async def set_recall_offset_cmd(event: PrivateMessageEvent) -> None:
+    "手动指定已读偏移"
+
+    parts = event.get_plaintext().strip().split()
+    if len(parts) < 2:
+        await SetRecallOffsetMatcher.finish(
+            "\n用法：!setrecalloffset <偏移>", at_sender=at_sender(event)
+        )
+
+    try:
+        offset = int(parts[-1])
+    except ValueError:
+        await SetRecallOffsetMatcher.finish(
+            "\n偏移必须是整数", at_sender=at_sender(event)
+        )
+
+    if offset < 0:
+        await SetRecallOffsetMatcher.finish(
+            "\n偏移不能为负数", at_sender=at_sender(event)
+        )
+
+    await set_recall_offset(str(event.user_id), offset)
+    await SetRecallOffsetMatcher.finish(
+        f"\n已将已读偏移设为 {offset}", at_sender=at_sender(event)
+    )

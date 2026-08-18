@@ -11,9 +11,12 @@ from .vip import get_vip, buy_vip
 from .agents import Agent
 from .lottery import LotteryTicket
 from .bindrequest import BindRequest
-from .imagecache import ImageCache
+from .recalloffset import (
+    RecallOffset,
+    get_recall_offset,
+    set_recall_offset,
+)
 from . import core
-
 
 __all__ = [
     "core",
@@ -25,6 +28,8 @@ __all__ = [
     "Agent",
     "LotteryTicket",
     "BindRequest",
-    "ImageCache",
+    "RecallOffset",
+    "get_recall_offset",
+    "set_recall_offset",
     "get_biggest_coins",
 ]
