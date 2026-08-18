@@ -12,7 +12,7 @@ from nonebot.params import Depends
 from .bot_utils import nick_getter, nick_getter_type
 from .help import Help
 
-Help.append_help(
+Help.append_superuser_help(
     """
 【管理命令】
 !mute @用户 [原因] [-d 时长] — 禁言用户（默认1小时，0秒解除禁言）

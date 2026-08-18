@@ -31,17 +31,6 @@ hypothesis = "^6.0.0"
 pytest = ">=8,<10"
 black = "^26.1.0"
 
-
-[[tool.poetry.source]]
-name = "mirrors"
-url = "https://pypi.tuna.tsinghua.edu.cn/simple/"
-priority = "primary"
-
-
-[[tool.poetry.source]]
-name = "PyPI"
-priority = "supplemental"
-
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

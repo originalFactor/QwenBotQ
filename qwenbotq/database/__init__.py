@@ -11,6 +11,7 @@ from .vip import get_vip, buy_vip
 from .agents import Agent
 from .lottery import LotteryTicket
 from .bindrequest import BindRequest
+from .imagecache import ImageCache
 from . import core
 
 
@@ -24,5 +25,6 @@ __all__ = [
     "Agent",
     "LotteryTicket",
     "BindRequest",
+    "ImageCache",
     "get_biggest_coins",
 ]
