@@ -31,24 +31,28 @@ from nonebot_plugin_alconna import MultiVar, on_alconna, Match
 # Local imports
 from .. import config
 from ..database import User, get_vip, Agent
-from ..bot_utils import require, get_flow_replies, get_session_id, reply_segment
+from ..bot_utils import (
+    require,
+    get_flow_replies,
+    get_session_id,
+    reply_segment,
+    at_sender,
+)
 from .tools import get_sysprompt, construct_history, tokenize
 from .core import chat
 from ..help import Help
 
-Help.append_help(
-    """
+Help.append_help("""
 【AI 助手】
 @我 <消息> — 与 AI 对话
 设置系统提示词 <名称> — 切换智能体
 更改模型 [模型ID] — 切换 AI 模型
 会话信息 — 查看当前会话状态
 添加智能体 <名称> <提示词> [选项] — 添加智能体
-删除智能体 <名称> — 删除智能体（管理员）
-修改智能体 <名称> [选项] — 修改智能体属性（管理员）
-续期vip <会话ID> <天数> — 续期 AI VIP（管理员）
-"""
-)
+!delagent <名称> — 删除智能体（管理员）
+!editagent <名称> [选项] — 修改智能体属性（管理员）
+!renewvip <会话ID> <天数> — 续期 AI VIP（管理员）
+""")
 
 __all__ = []
 
@@ -60,8 +64,18 @@ def strict_to_me(event: MessageEvent, bot: Bot) -> bool:
     )
 
 
+def not_from_bot(event: MessageEvent, bot: Bot) -> bool:
+    "排除机器人自身发出的消息（如文件/图片回传事件）"
+    return str(event.user_id) != bot.self_id
+
+
+def has_text(event: MessageEvent) -> bool:
+    "排除无文本内容的消息（纯文件/纯图片等）"
+    return bool(event.get_plaintext().strip())
+
+
 # 大模型回复匹配器
-LLMMatcher = on_message(rule=Rule(strict_to_me), priority=20)
+LLMMatcher = on_message(rule=Rule(strict_to_me, not_from_bot, has_text), priority=20)
 
 
 @LLMMatcher.handle()
@@ -78,7 +92,7 @@ async def llm(
     session_id = get_session_id(event)
     has_vip, _ = await get_vip(session_id)
     if not has_vip:
-        await LLMMatcher.finish("\n请先开通 AI VIP !", at_sender=True)
+        await LLMMatcher.finish("\n请先开通 AI VIP !", at_sender=at_sender(event))
 
     start_time = perf_counter()
 
@@ -91,7 +105,7 @@ async def llm(
         await user.set({User.model: list(models.keys())[0]})
         await LLMMatcher.send(
             f"\n您所选模型已下线，已自动为您切换可用的 {models[user.model].name} 模型",
-            at_sender=True,
+            at_sender=at_sender(event),
         )
     logger.debug(
         f"Model check done with {user.model}, cost: {(perf_counter() - t0) * 1000:.2f}ms"
@@ -101,7 +115,9 @@ async def llm(
     t0 = perf_counter()
     prompt = event.get_plaintext().strip()
     if not prompt:
-        await LLMMatcher.finish("\n虽然你啥也没说，但是我记住你了！", at_sender=True)
+        await LLMMatcher.finish(
+            "\n虽然你啥也没说，但是我记住你了！", at_sender=at_sender(event)
+        )
     logger.debug(f"Prompt check done!, cost: {(perf_counter() - t0) * 1000:.2f}ms")
 
     # 构建历史消息
@@ -119,7 +135,8 @@ async def llm(
     if not agent:
         await user.set({User.system_prompt: "DEFAULT"})
         await LLMMatcher.send(
-            "\n您的系统提示词配置有误，已自动重置为默认提示词。", at_sender=True
+            "\n您的系统提示词配置有误，已自动重置为默认提示词。",
+            at_sender=at_sender(event),
         )
         agent = await get_sysprompt("DEFAULT")
 
@@ -134,7 +151,7 @@ async def llm(
     if predicted_tokens > (model.context_length or float("inf")):
         await LLMMatcher.finish(
             f"\n上下文长度 {predicted_tokens} tokens 超过模型能够处理的最长长度 {model.context_length} tokens",
-            at_sender=True,
+            at_sender=at_sender(event),
         )
     logger.debug(
         f"Context length check done!, cost: {(perf_counter() - t0) * 1000:.2f}ms"
@@ -206,6 +223,7 @@ PromptMatcher = on_alconna(prompt_cmd, block=True)
 async def set_prompt(
     user: Annotated[User, require()],
     prompt_name: Match[str],
+    event: MessageEvent,
 ) -> NoReturn:
     "设置系统提示词"
 
@@ -213,16 +231,18 @@ async def set_prompt(
         await PromptMatcher.finish(
             "\n用法：设置系统提示词 <智能体名称>\n"
             "可用值：DEFAULT, UNSAFE 或已创建的智能体名称",
-            at_sender=True,
+            at_sender=at_sender(event),
         )
 
     agent = await Agent.get(prompt_name.result)
 
     if not (prompt_name.result in ["DEFAULT", "UNSAFE"] or agent):
-        await PromptMatcher.finish("\n智能体不存在。", at_sender=True)
+        await PromptMatcher.finish("\n智能体不存在。", at_sender=at_sender(event))
 
     await user.set({User.system_prompt: prompt_name.result})
-    await PromptMatcher.finish("\n已尝试更新您的专属系统提示词", at_sender=True)
+    await PromptMatcher.finish(
+        "\n已尝试更新您的专属系统提示词", at_sender=at_sender(event)
+    )
 
 
 # 更换模型匹配器
@@ -232,7 +252,9 @@ ModelChangeMatcher = on_alconna(model_cmd, block=True)
 
 @ModelChangeMatcher.handle()
 async def model_change(
-    user: Annotated[User, require()], model_id: Match[str]
+    user: Annotated[User, require()],
+    model_id: Match[str],
+    event: MessageEvent,
 ) -> NoReturn:
     "更改模型"
 
@@ -252,10 +274,10 @@ async def model_change(
                     ]
                 )
             ),
-            at_sender=True,
+            at_sender=at_sender(event),
         )
     await user.set({User.model: model_id.result})
-    await ModelChangeMatcher.finish("\n成功为您更换模型。", at_sender=True)
+    await ModelChangeMatcher.finish("\n成功为您更换模型。", at_sender=at_sender(event))
 
 
 SessionMatcher = on_command("会话信息", block=True)
@@ -272,7 +294,7 @@ async def session_info(
     await SessionMatcher.finish(
         f"\n会话 ID：{session_id}\n"
         f"VIP 到期：{vip[1].strftime('%Y-%m-%d') if vip[1] and vip[1] > date.today() else '未开通'}",
-        at_sender=True,
+        at_sender=at_sender(event),
     )
 
 
@@ -286,19 +308,23 @@ async def clear_memory(
     "清除记忆"
 
     if not config.ai or not config.ai.memory:
-        await ClearMemoryMatcher.finish("\n记忆系统未启用。", at_sender=True)
+        await ClearMemoryMatcher.finish(
+            "\n记忆系统未启用。", at_sender=at_sender(event)
+        )
 
     session_id = get_session_id(event)
 
     if session_id[0] == "g" and event.get_user_id() not in config.supermgr_ids:
         await ClearMemoryMatcher.finish(
-            "\n只有超级管理员可以清除群聊会话的记忆。", at_sender=True
+            "\n只有超级管理员可以清除群聊会话的记忆。", at_sender=at_sender(event)
         )
 
     from .memory import clear_memory
 
     await clear_memory(session_id)
-    await ClearMemoryMatcher.finish("\n已尝试清除本会话的记忆", at_sender=True)
+    await ClearMemoryMatcher.finish(
+        "\n已尝试清除本会话的记忆", at_sender=at_sender(event)
+    )
 
 
 GetMemoryMatcher = on_command("查看记忆", block=True)
@@ -311,13 +337,13 @@ async def get_memory(
     "查看记忆"
 
     if not config.ai or not config.ai.memory:
-        await GetMemoryMatcher.finish("\n记忆系统未启用。", at_sender=True)
+        await GetMemoryMatcher.finish("\n记忆系统未启用。", at_sender=at_sender(event))
 
     session_id = get_session_id(event)
 
     if session_id[0] == "g" and event.get_user_id() not in config.supermgr_ids:
         await GetMemoryMatcher.finish(
-            "\n只有超级管理员可以查看群聊会话的记忆。", at_sender=True
+            "\n只有超级管理员可以查看群聊会话的记忆。", at_sender=at_sender(event)
         )
 
     from .memory import getall_memory
@@ -325,7 +351,9 @@ async def get_memory(
     memlist = await getall_memory(session_id)
     memstr = "\n".join(memlist)
 
-    await GetMemoryMatcher.finish(f"\n当前所有记忆：\n{memstr}", at_sender=True)
+    await GetMemoryMatcher.finish(
+        f"\n当前所有记忆：\n{memstr}", at_sender=at_sender(event)
+    )
 
 
 # 添加智能体匹配器
@@ -350,6 +378,7 @@ async def add_agent(
     agent_name: Match[str],
     prompt: Match[tuple[str, ...]],
     arp: Arparma[Any],
+    event: MessageEvent,
 ) -> NoReturn:
     "添加智能体"
 
@@ -362,15 +391,17 @@ async def add_agent(
             "  -p/--presence_penalty <值> —— 存在惩罚 (默认0.0)\n"
             "  -m/--max_tokens <值> —— 最大输出长度\n"
             "  -T/--thinking —— 是否开启思考模式 (默认False)\n",
-            at_sender=True,
+            at_sender=at_sender(event),
         )
 
     if agent_name.result in ["DEFAULT", "UNSAFE"]:
-        await AddAgentMatcher.finish("\n不允许使用保留名称。", at_sender=True)
+        await AddAgentMatcher.finish(
+            "\n不允许使用保留名称。", at_sender=at_sender(event)
+        )
 
     existing = await Agent.get(agent_name.result)
     if existing:
-        await AddAgentMatcher.finish("\n该智能体已存在。", at_sender=True)
+        await AddAgentMatcher.finish("\n该智能体已存在。", at_sender=at_sender(event))
 
     agent = Agent(id=agent_name.result, prompt=" ".join(prompt.result))
     if (t := arp.query[float]("temperature.temperature")) is not None:
@@ -386,12 +417,12 @@ async def add_agent(
     await agent.insert()
     await AddAgentMatcher.finish(
         f"\n已成功添加智能体 {agent_name.result}",
-        at_sender=True,
+        at_sender=at_sender(event),
     )
 
 
 # 删除智能体匹配器
-del_agent_cmd = Alconna("删除智能体", Args["agent_name?", str])
+del_agent_cmd = Alconna("!delagent", Args["agent_name?", str])
 DelAgentMatcher = on_alconna(del_agent_cmd, block=True)
 
 
@@ -399,32 +430,35 @@ DelAgentMatcher = on_alconna(del_agent_cmd, block=True)
 async def del_agent(
     user: Annotated[User, require(superuser=True)],
     agent_name: Match[str],
+    event: MessageEvent,
 ) -> NoReturn:
     "删除智能体"
 
     if not agent_name.available:
         await DelAgentMatcher.finish(
-            "\n用法：删除智能体 <名称>",
-            at_sender=True,
+            "\n用法：!delagent <名称>",
+            at_sender=at_sender(event),
         )
 
     if agent_name.result in ["DEFAULT", "UNSAFE"]:
-        await DelAgentMatcher.finish("\n不允许删除保留智能体。", at_sender=True)
+        await DelAgentMatcher.finish(
+            "\n不允许删除保留智能体。", at_sender=at_sender(event)
+        )
 
     agent = await Agent.get(agent_name.result)
     if not agent:
-        await DelAgentMatcher.finish("\n该智能体不存在。", at_sender=True)
+        await DelAgentMatcher.finish("\n该智能体不存在。", at_sender=at_sender(event))
 
     await agent.delete()
     await DelAgentMatcher.finish(
         f"\n已成功删除智能体 {agent_name.result}",
-        at_sender=True,
+        at_sender=at_sender(event),
     )
 
 
 # 修改智能体匹配器
 edit_agent_cmd = Alconna(
-    "修改智能体",
+    "!editagent",
     Args["agent_name?", str],
     Option("--prompt", Args["prompt", MultiVar(str)], help_text="提示词"),
     Option("--temperature|-t", Args["temperature", float], help_text="温度参数"),
@@ -445,12 +479,13 @@ async def edit_agent(
     user: Annotated[User, require(superuser=True)],
     agent_name: Match[str],
     arp: Arparma[Any],
+    event: MessageEvent,
 ) -> NoReturn:
     "修改智能体"
 
     if not agent_name.available:
         await EditAgentMatcher.finish(
-            "\n用法：修改智能体 <名称> [选项]\n"
+            "\n用法：!editagent <名称> [选项]\n"
             "选项：\n"
             "  --prompt <提示词> —— 修改提示词\n"
             "  -t/--temperature <值> —— 温度参数\n"
@@ -458,15 +493,17 @@ async def edit_agent(
             "  -p/--presence_penalty <值> —— 存在惩罚\n"
             "  -m/--max_tokens <值> —— 最大输出长度\n"
             "  -T/--thinking —— 是否开启思考模式 (默认False)\n",
-            at_sender=True,
+            at_sender=at_sender(event),
         )
 
     if agent_name.result in ["DEFAULT", "UNSAFE"]:
-        await EditAgentMatcher.finish("\n不允许修改保留智能体。", at_sender=True)
+        await EditAgentMatcher.finish(
+            "\n不允许修改保留智能体。", at_sender=at_sender(event)
+        )
 
     agent = await Agent.get(agent_name.result)
     if not agent:
-        await EditAgentMatcher.finish("\n该智能体不存在。", at_sender=True)
+        await EditAgentMatcher.finish("\n该智能体不存在。", at_sender=at_sender(event))
 
     updates: dict[str, str | float | int] = {}
     if (pr := arp.query[tuple[str, ...]]("prompt.prompt")) is not None:
@@ -483,11 +520,13 @@ async def edit_agent(
         updates["thinking"] = t
 
     if not updates:
-        await EditAgentMatcher.finish("\n请至少指定一个要修改的选项。", at_sender=True)
+        await EditAgentMatcher.finish(
+            "\n请至少指定一个要修改的选项。", at_sender=at_sender(event)
+        )
 
     await agent.set(updates)
     await EditAgentMatcher.finish(
         f"\n已成功修改智能体 {agent_name.result}，"
         f"更新了：{', '.join(updates.keys())}",
-        at_sender=True,
+        at_sender=at_sender(event),
     )

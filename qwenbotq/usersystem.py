@@ -22,6 +22,7 @@ from .bot_utils import (
     get_nick,
     get_session_id,
     nick_getter,
+    at_sender,
 )
 from .database import User, buy_vip
 from .help import Help
@@ -79,7 +80,7 @@ async def get_information(
             if cp_info
             else "未绑定"
         ),
-        at_sender=True,
+        at_sender=at_sender(event),
     )
 
 
@@ -87,7 +88,7 @@ SignMatcher = on_alconna(Alconna("签到"), block=True)
 
 
 @SignMatcher.handle()
-async def sign(user: Annotated[User, require()]):
+async def sign(user: Annotated[User, require()], event: MessageEvent):
     "每日签到"
     if user.sign_expire <= date.today():
         coins = randint(
@@ -98,12 +99,12 @@ async def sign(user: Annotated[User, require()]):
         await SignMatcher.finish(
             f"\n签到成功！本次获得{coins}个积分\n"
             f'过期时间：{user.sign_expire.strftime("%Y/%m/%d")}',
-            at_sender=True,
+            at_sender=at_sender(event),
         )
     await SignMatcher.finish(
         "\n本日已签到！请勿重复签到！\n"
         "最近一次签到的过期时间：\n" + user.sign_expire.strftime("%Y/%m/%d"),
-        at_sender=True,
+        at_sender=at_sender(event),
     )
 
 
@@ -118,18 +119,21 @@ async def transfer(
     amount: Match[int],
     bot: Bot,
     nick_getter: Annotated[Callable[[str], Awaitable[str]], nick_getter()],
+    event: MessageEvent,
 ):
     "转账积分"
     if not target.available or not amount.available:
         await TransferMatcher.finish(
             "\n用法：转账给 @目标用户 <积分数量>",
-            at_sender=True,
+            at_sender=at_sender(event),
         )
     target_user = await get_user(target.result.target)
     if amount.result < 0:
-        await TransferMatcher.finish("\n不允许反向转账积分！", at_sender=True)
+        await TransferMatcher.finish(
+            "\n不允许反向转账积分！", at_sender=at_sender(event)
+        )
     if user.id == target_user.id:
-        await TransferMatcher.finish("\n不允许给自己转账！", at_sender=True)
+        await TransferMatcher.finish("\n不允许给自己转账！", at_sender=at_sender(event))
     if user.coins >= amount.result:
         await target_user.inc({User.coins: amount.result})
         await user.inc({User.coins: -amount.result})
@@ -138,14 +142,14 @@ async def transfer(
             "\n成功给\n"
             f"{mention_nick} ({target_user.id})\n"
             f"转账了{amount.result}积分！",
-            at_sender=True,
+            at_sender=at_sender(event),
         )
     await TransferMatcher.finish(
-        f"\n您的积分余额不足以转账{amount.result}积分！", at_sender=True
+        f"\n您的积分余额不足以转账{amount.result}积分！", at_sender=at_sender(event)
     )
 
 
-set_vip_cmd = Alconna("续期vip", Args["session_id?", str]["days?", int])
+set_vip_cmd = Alconna("!renewvip", Args["session_id?", str]["days?", int])
 SetVipMatcher = on_alconna(set_vip_cmd, block=True)
 
 
@@ -154,21 +158,24 @@ async def set_vip(
     user: Annotated[User, require(superuser=True)],
     session_id: Match[str],
     days: Match[int],
+    event: MessageEvent,
 ):
     "设置 AI VIP"
 
     if not session_id.available or not days.available:
         await SetVipMatcher.finish(
-            "\n用法：续期vip <会话ID> <天数>",
-            at_sender=True,
+            "\n用法：!renewvip <会话ID> <天数>",
+            at_sender=at_sender(event),
         )
 
     if days.result < 0:
-        await SetVipMatcher.finish("\n不允许设置负数的 VIP 续期！", at_sender=True)
+        await SetVipMatcher.finish(
+            "\n不允许设置负数的 VIP 续期！", at_sender=at_sender(event)
+        )
 
     vip = await buy_vip(session_id.result, days.result)
 
     await SetVipMatcher.finish(
         f"\n已为用户 {session_id.result} 续期 VIP 到 {vip.expire.strftime('%Y/%m/%d')}",
-        at_sender=True,
+        at_sender=at_sender(event),
     )

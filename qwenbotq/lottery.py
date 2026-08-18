@@ -14,23 +14,21 @@ from arclet.alconna import Alconna, Args
 from nonebot_plugin_alconna import on_alconna, Match
 from nonebot import get_bot, get_driver
 from nonebot.log import logger
-from nonebot.adapters.onebot.v11 import GroupMessageEvent
+from nonebot.adapters.onebot.v11 import GroupMessageEvent, MessageEvent
 from nonebot_plugin_apscheduler import scheduler
 
 from . import config
 from .database import User, LotteryTicket
-from .bot_utils import require
+from .bot_utils import require, at_sender
 from .help import Help
 
-Help.append_help(
-    """
+Help.append_help("""
 【抽奖】
 购买奖号 <6位数字> — 花费积分购买奖号
 我的奖号 — 查看待开奖的奖号
-提前开奖 — 强制立即开奖（管理员）
+!forcedraw — 强制立即开奖（管理员）
 每天中午12:00自动开奖
-"""
-)
+""")
 
 
 def get_nextday():
@@ -54,17 +52,17 @@ async def buy_ticket(
 
     group_id = str(event.group_id)
     if group_id not in config.lottery.groups:
-        await BuyMatcher.finish("\n本群未开启抽奖功能。", at_sender=True)
+        await BuyMatcher.finish("\n本群未开启抽奖功能。", at_sender=at_sender(event))
 
     if not number.available:
         await BuyMatcher.finish(
             f"\n用法：购买奖号 <6位数字>\n" f"花费 {config.lottery.ticket_price} 积分",
-            at_sender=True,
+            at_sender=at_sender(event),
         )
 
     num = number.result.strip()
     if not re.fullmatch(r"\d{6}", num):
-        await BuyMatcher.finish("\n奖号必须是6位数字。", at_sender=True)
+        await BuyMatcher.finish("\n奖号必须是6位数字。", at_sender=at_sender(event))
 
     # 检查今日是否已购买
     existing = await LotteryTicket.find_one(
@@ -73,7 +71,7 @@ async def buy_ticket(
     if existing:
         await BuyMatcher.finish(
             f"\n您已经购买过奖号，开奖后可再次购买。",
-            at_sender=True,
+            at_sender=at_sender(event),
         )
 
     # 检查奖号全局唯一（同一期）
@@ -81,7 +79,9 @@ async def buy_ticket(
         LotteryTicket.number == num,
     )
     if duplicate:
-        await BuyMatcher.finish("\n该奖号已被其他人选择，请换一个。", at_sender=True)
+        await BuyMatcher.finish(
+            "\n该奖号已被其他人选择，请换一个。", at_sender=at_sender(event)
+        )
 
     ticket = LotteryTicket(user_id=user.id, number=num)
     await ticket.insert()
@@ -93,7 +93,7 @@ async def buy_ticket(
         f"\n奖号：{num}"
         f"\n开奖时间：{get_nextday()}"
         f"\n消耗积分：{config.lottery.ticket_price}",
-        at_sender=True,
+        at_sender=at_sender(event),
     )
 
 
@@ -104,6 +104,7 @@ MyTicketMatcher = on_alconna(Alconna("我的奖号"), block=True)
 @MyTicketMatcher.handle()
 async def my_ticket(
     user: Annotated[User, require()],
+    event: MessageEvent,
 ):
     "查看当期奖号"
 
@@ -113,11 +114,13 @@ async def my_ticket(
     )
 
     if not ticket:
-        await MyTicketMatcher.finish("\n您当前没有待开奖的奖号。", at_sender=True)
+        await MyTicketMatcher.finish(
+            "\n您当前没有待开奖的奖号。", at_sender=at_sender(event)
+        )
 
     await MyTicketMatcher.finish(
         f"\n您的奖号：{ticket.number}\n" f"开奖日期：{get_nextday()}",
-        at_sender=True,
+        at_sender=at_sender(event),
     )
 
 
@@ -190,16 +193,17 @@ async def draw_lottery():
     logger.info(f"抽奖开奖完成，共 {len(winners)} 人中奖")
 
 
-ForceDrawMatcher = on_alconna(Alconna("提前开奖"), block=True)
+ForceDrawMatcher = on_alconna(Alconna("!forcedraw"), block=True)
 
 
 @ForceDrawMatcher.handle()
 async def force_draw_lottery(
     user: Annotated[User, require(superuser=True)],
+    event: MessageEvent,
 ):
     "强制开奖"
     await draw_lottery()
-    await ForceDrawMatcher.finish("\n已提前开奖", at_sender=True)
+    await ForceDrawMatcher.finish("\n已提前开奖", at_sender=at_sender(event))
 
 
 @get_driver().on_startup
