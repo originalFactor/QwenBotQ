@@ -151,9 +151,7 @@ async def _register_cleanup_job() -> None:
         id="imagecache_cleanup",
         replace_existing=True,
     )
-    logger.info(
-        "图片缓存功能已启用，缓存目录：%s，清理间隔：%ss", CACHE_DIR, CLEAN_INTERVAL
-    )
+    logger.info(f"图片缓存功能已启用，缓存目录：{CACHE_DIR}，清理间隔：{CLEAN_INTERVAL}s")
 
 
 # ===== SUPERUSER 私聊管理命令 =====
