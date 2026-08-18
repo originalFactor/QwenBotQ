@@ -160,21 +160,23 @@ async def _send_search_results(
     async with AsyncClient(cookies=cookies) as c:
         ehentai = EHentaiClient(client=c)
         res = await ehentai.search(query=query, exhentai=exh, next=next)
+        galleries = res.galleries[:limit]
+        # 缩略图需带 Cookie 访问，必须在客户端关闭前下载
+        thumbs = [await g.thumbnail() for g in galleries]
 
-    if not res.galleries:
+    if not galleries:
         await matcher.finish("\n没有找到结果", at_sender=at_sender(event))
 
     reply_id = msgId
-    for g in res.galleries[:limit]:
-        data = await matcher.send(
-            reply_segment(reply_id)
-            + MessageSegment.image(g.thumbnail)  # pyright: ignore[reportArgumentType]
-            + f"\n{g.title}"
-            f"\n{g.type} ⭐{g.rate} {g.published:%Y-%m-%d}"
-            f'\n{" ".join(g.tags)}'
-            f"\n{g.url}",
-            at_sender=at_sender(event),
-        )
+    for g, thumb in zip(galleries, thumbs):
+        message = reply_segment(reply_id)
+        if thumb:
+            message += MessageSegment.image(thumb)
+        message += f"\n{g.title}"
+        message += f"\n{g.type} ⭐{g.rate} {g.published:%Y-%m-%d}"
+        message += f'\n{" ".join(g.tags)}'
+        message += f"\n{g.url}"
+        data = await matcher.send(message, at_sender=at_sender(event))
         reply_id: int = data["message_id"]
 
 
