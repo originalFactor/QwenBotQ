@@ -51,6 +51,17 @@ if not isdir("downloads"):
     mkdir("downloads")
 
 
+def _safe_filename(name: str, max_len: int = 80) -> str:
+    """生成 QQ 群文件可接受的合法文件名。
+
+    QQ 拒绝 `\\ / : * ? " < > |` 及控制字符，统一替换为下划线；
+    去除首尾点/空格并截断超长标题，空结果兜底使用随机值。
+    """
+    cleaned = re.sub(r'[\\/:*?"<>|\x00-\x1f\x7f]', "_", name)
+    cleaned = cleaned.strip(" .")[:max_len].rstrip(" .")
+    return cleaned or uuid4().hex
+
+
 def cookies_format(cookies: str):
     return {
         k.strip(): v.strip() for k, v in (c.split("=", 1) for c in cookies.split(";"))
@@ -111,7 +122,7 @@ async def download_book(url: Match[str], bot: Bot, event: MessageEvent):
             f"downloads/{uuid}",
         )
 
-    album_filename = santize_album_name(album_name)
+    album_filename = _safe_filename(santize_album_name(album_name))
 
     await DownloadBookMatcher.send(
         f"\n下载完成：{album_name}\n打包中", at_sender=at_sender(event)
