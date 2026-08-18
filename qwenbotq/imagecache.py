@@ -44,7 +44,7 @@ Help.append_superuser_help("""
 !getrecalls — 获取已读偏移之后的新撤回图片（多条一并发送）
 !getrecallszip — 将已读偏移之后的新撤回图片打包为zip获取
 !setrecalloffset <偏移> — 手动指定已读偏移
-!delrecalls — 删除当前保存的所有已撤回图片
+!delrecalls — 删除当前保存的所有已撤回图片并重置已读偏移
 """)
 
 # 缓存目录与保留天数
@@ -264,7 +264,7 @@ DelRecallsMatcher = on_command(
 
 @DelRecallsMatcher.handle()
 async def del_recalls(event: PrivateMessageEvent) -> None:
-    "删除所有已撤回图片"
+    "删除所有已撤回图片，并将已读偏移重置为 0"
 
     deleted = 0
     for f in os.listdir(RECALLED_DIR):
@@ -273,8 +273,10 @@ async def del_recalls(event: PrivateMessageEvent) -> None:
             os.remove(p)
             deleted += 1
 
+    await set_recall_offset(str(event.user_id), 0)
     await DelRecallsMatcher.finish(
-        f"\n已删除 {deleted} 张撤回图片", at_sender=at_sender(event)
+        f"\n已删除 {deleted} 张撤回图片，已读偏移已重置为 0",
+        at_sender=at_sender(event),
     )
 
 

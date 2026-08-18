@@ -30,6 +30,7 @@ nb-cli = "^1.4.2"
 hypothesis = "^6.0.0"
 pytest = ">=8,<10"
 black = "^26.1.0"
+pyright = "^1.1.411"
 
 [build-system]
 requires = ["poetry-core"]
