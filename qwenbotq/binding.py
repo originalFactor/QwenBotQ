@@ -21,7 +21,14 @@ from nonebot.adapters.onebot.v11 import (
 
 from . import config
 from .database import User, apply_bind, BindRequest, get_biggest_coins
-from .bot_utils import require, get_user, get_nick, get_session_id, send_session
+from .bot_utils import (
+    require,
+    get_user,
+    get_nick,
+    get_session_id,
+    send_session,
+    at_sender,
+)
 from .help import Help
 from .utils import avatar
 
@@ -45,7 +52,7 @@ async def wife(user: Annotated[User, require()], event: GroupMessageEvent, bot: 
         expire = user.binded.expire
         if not (cp_user.binded and cp_user.binded.id == user.id):
             await WifeMatcher.finish(
-                "\n您的绑定数据有误，请联系管理员！", at_sender=True
+                "\n您的绑定数据有误，请联系管理员！", at_sender=at_sender(event)
             )
     else:
         members = await bot.get_group_member_list(group_id=event.group_id)
@@ -71,7 +78,7 @@ async def wife(user: Annotated[User, require()], event: GroupMessageEvent, bot: 
         + f"{cp_nick} ({cp_user.id})\n"
         f'过期时间：{expire.strftime("%Y/%m/%d")}\n'
         "\n今日关系已绑定，要好好珍惜哦！",
-        at_sender=True,
+        at_sender=at_sender(event),
     )
 
 
@@ -81,6 +88,7 @@ RefreshMatcher = on_alconna(Alconna("换老公"), block=True)
 @RefreshMatcher.handle()
 async def refresh(
     user: Annotated[User, require(config.price.refresh_price, only_check=True)],
+    event: MessageEvent,
 ):
     "解除绑定"
 
@@ -91,10 +99,11 @@ async def refresh(
         await user.set({"binded.expire": date.today()})
         await user.inc({"coins": -config.price.refresh_price})
         await RefreshMatcher.finish(
-            "\n已解除绑定！" f"\n消耗 {config.price.refresh_price} 积分", at_sender=True
+            "\n已解除绑定！" f"\n消耗 {config.price.refresh_price} 积分",
+            at_sender=at_sender(event),
         )
     else:
-        await RefreshMatcher.finish("\n您还没有绑定关系", at_sender=True)
+        await RefreshMatcher.finish("\n您还没有绑定关系", at_sender=at_sender(event))
 
 
 RenewMatcher = on_alconna(Alconna("续期", Args["days?", int]), block=True)
@@ -106,18 +115,20 @@ async def renew(
 ):
     "续期关系"
     if not (user.binded and user.binded.expire > date.today()):
-        await RenewMatcher.finish("\n无绑定数据", at_sender=True)
+        await RenewMatcher.finish("\n无绑定数据", at_sender=at_sender(event))
 
     days_i = days.result if days.available else 1
     if days_i < 1:
-        await RenewMatcher.finish("\n续期天数不能小于1天", at_sender=True)
+        await RenewMatcher.finish("\n续期天数不能小于1天", at_sender=at_sender(event))
 
     if user.coins < config.price.renew_cost * days_i:
-        await RenewMatcher.finish("\n您的余额不足", at_sender=True)
+        await RenewMatcher.finish("\n您的余额不足", at_sender=at_sender(event))
 
     w = await get_user(user.binded.id)
     if not (w.binded and w.binded.id == user.id):
-        await RenewMatcher.finish("\n您的绑定数据异常，请联系管理员", at_sender=True)
+        await RenewMatcher.finish(
+            "\n您的绑定数据异常，请联系管理员", at_sender=at_sender(event)
+        )
 
     new_exp = user.binded.expire + timedelta(days=days_i)
 
@@ -134,7 +145,7 @@ async def renew(
         "的关系至\n"
         f'{user.binded.expire.strftime("%Y/%m/%d")}\n'
         f"消耗 {elapsed_coins} 积分",
-        at_sender=True,
+        at_sender=at_sender(event),
     )
 
 
@@ -153,12 +164,18 @@ async def request(
     "申请绑定"
 
     if not to.available:
-        await RequestMatcher.finish("\n用法：申请绑定 @用户", at_sender=True)
+        await RequestMatcher.finish(
+            "\n用法：申请绑定 @用户", at_sender=at_sender(event)
+        )
 
     if user.binded and user.binded.expire > date.today():
         if user.binded.id == to.result.target:
-            await RequestMatcher.finish("\n您已绑定该用户，无需申请", at_sender=True)
-        await RequestMatcher.finish("\n您已绑定其他用户，请先解绑", at_sender=True)
+            await RequestMatcher.finish(
+                "\n您已绑定该用户，无需申请", at_sender=at_sender(event)
+            )
+        await RequestMatcher.finish(
+            "\n您已绑定其他用户，请先解绑", at_sender=at_sender(event)
+        )
 
     binded = False
     async for req in BindRequest.find({"to_id": user.id}):
@@ -171,7 +188,7 @@ async def request(
             await RequestMatcher.send(
                 f"\n您和 {cp_nick} ({cp.id}) 已绑定\n"
                 f"过期时间：{expire.strftime('%Y/%m/%d')}",
-                at_sender=True,
+                at_sender=at_sender(event),
             )
             await send_session(
                 bot,
@@ -201,7 +218,7 @@ async def request(
 
     if cp_user.binded and cp_user.binded.expire > date.today():
         await RequestMatcher.finish(
-            f"\n{cp_nick} ({cp_user.id}) 已绑定其他用户", at_sender=True
+            f"\n{cp_nick} ({cp_user.id}) 已绑定其他用户", at_sender=at_sender(event)
         )
 
     await BindRequest.find_one({"from_id": user.id}).delete()
@@ -212,5 +229,5 @@ async def request(
     ).insert()
 
     await RequestMatcher.finish(
-        f"\n您已成功申请绑定 {cp_nick} ({cp_user.id})", at_sender=True
+        f"\n您已成功申请绑定 {cp_nick} ({cp_user.id})", at_sender=at_sender(event)
     )

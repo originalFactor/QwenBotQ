@@ -4,23 +4,25 @@ from pytimeparse2 import parse
 from nonebot_plugin_alconna import Alconna, Option, on_alconna, Args, Match, At, Query
 from nonebot.permission import SUPERUSER
 from nonebot.adapters.onebot.v11.permission import GROUP_ADMIN, GROUP_OWNER
-from nonebot.adapters.onebot.v11.event import GroupMessageEvent, GroupRequestEvent
+from nonebot.adapters.onebot.v11.event import (
+    GroupMessageEvent,
+    GroupRequestEvent,
+    MessageEvent,
+)
 from nonebot.adapters.onebot.v11.bot import Bot
 from nonebot.matcher import Matcher
 from nonebot import on_command, on_request
 from nonebot.params import Depends
-from .bot_utils import nick_getter, nick_getter_type
+from .bot_utils import nick_getter, nick_getter_type, at_sender
 from .help import Help
 
-Help.append_superuser_help(
-    """
+Help.append_superuser_help("""
 【管理命令】
 !mute @用户 [原因] [-d 时长] — 禁言用户（默认1小时，0秒解除禁言）
 !kick @用户 [原因] [-b] — 踢出用户（-b 并封禁）
 !request approve|reject [原因] — 处理加群申请（需回复申请消息）
 !delete — 撤回消息（发送即撤回本身；若回复消息则一并撤回回复的消息）
-"""
-)
+""")
 
 get_user_args = Args["user?", At]["user_id?", int]
 reason_args = Args["reason?", str]
@@ -37,7 +39,7 @@ async def parse_user(
         return user_id.result
     if event.reply:
         return int(event.reply.sender.user_id or 0)
-    await matcher.finish("请指定要操作的用户", at_sender=True)
+    await matcher.finish("请指定要操作的用户", at_sender=at_sender(event))
 
 
 @Depends
@@ -85,7 +87,9 @@ async def admin(event: GroupMessageEvent, bot: Bot, matcher: Matcher) -> AdminPo
     )
     if data["role"] in ("owner", "admin"):
         return AdminPower(event.group_id, bot)
-    await matcher.finish("请先给予群主或管理员权限，才能使用该命令", at_sender=True)
+    await matcher.finish(
+        "请先给予群主或管理员权限，才能使用该命令", at_sender=at_sender(event)
+    )
 
 
 mute_alconna = Alconna("!mute", get_user_args, reason_args, duration_option)
@@ -101,17 +105,18 @@ async def mute(
     reason: Annotated[str, parse_reason],
     duration: Annotated[str, parse_duration],
     nick_getter: Annotated[nick_getter_type, nick_getter()],
+    event: MessageEvent,
 ):
     duration_seconds = await admin.mute(user, duration)
     nick = await nick_getter(str(user))
     if duration_seconds > 0:
         await mute_matcher.finish(
             f"已禁言 {nick}({user}) {duration_seconds} 秒\n" f"原因：{reason}",
-            at_sender=True,
+            at_sender=at_sender(event),
         )
     else:
         await mute_matcher.finish(
-            f"已解除禁言 {nick}({user})\n" f"原因：{reason}", at_sender=True
+            f"已解除禁言 {nick}({user})\n" f"原因：{reason}", at_sender=at_sender(event)
         )
 
 
@@ -127,6 +132,7 @@ async def kick(
     user: Annotated[int, parse_user],
     reason: Annotated[str, parse_reason],
     nick_getter: Annotated[nick_getter_type, nick_getter()],
+    event: MessageEvent,
     ban=Query("ban"),
 ):
     await admin.kick(user, ban.available)
@@ -134,7 +140,7 @@ async def kick(
         f"已踢出 {await nick_getter(str(user))}({user})"
         f"{'并封禁' if ban.available else ''}\n"
         f"原因：{reason}",
-        at_sender=True,
+        at_sender=at_sender(event),
     )
 
 
@@ -168,14 +174,14 @@ async def process_request(
 ):
     # check if reply
     if not event.reply:
-        await process_matcher.finish("请回复申请消息", at_sender=True)
+        await process_matcher.finish("请回复申请消息", at_sender=at_sender(event))
 
     # extract flag and sub_type from reply message
     reply_str = event.reply.message.extract_plain_text()
     flag = search(r"f\{(\w+)\}", reply_str)
     sub_type = search(r"t\{(\w+)\}", reply_str)
     if not flag or not sub_type:
-        await process_matcher.finish("请回复申请消息", at_sender=True)
+        await process_matcher.finish("请回复申请消息", at_sender=at_sender(event))
     flag = flag.group(1)
     sub_type = sub_type.group(1)
 
@@ -183,14 +189,15 @@ async def process_request(
     if not tp.available or tp.result not in ("approve", "reject"):
         await process_matcher.finish(
             "\n用法：!request approve|reject [原因]\n请先回复一条加群申请消息",
-            at_sender=True,
+            at_sender=at_sender(event),
         )
     approve = tp.result == "approve"
     r = reason.available and reason.result or "无"
 
     await admin.process_request(flag, sub_type, approve, r)
     await process_matcher.finish(
-        f"已{'接受' if approve else '拒绝'}申请\n" f"原因：{r}", at_sender=True
+        f"已{'接受' if approve else '拒绝'}申请\n" f"原因：{r}",
+        at_sender=at_sender(event),
     )
 
 

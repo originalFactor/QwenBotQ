@@ -10,7 +10,7 @@
 
 import asyncio
 import re
-from typing import Annotated, cast
+from typing import Annotated, cast, Any
 from collections.abc import Callable, Awaitable
 
 from nonebot.matcher import Matcher
@@ -22,7 +22,8 @@ from nonebot.adapters.onebot.v11 import (
     GroupMessageEvent,
     MessageSegment,
 )
-from nonebot.adapters.onebot.v11.event import Reply
+from nonebot.adapters.onebot.v11.event import Event, Reply
+from nonebot.adapters.onebot.v11.bot import send as ob_send
 
 from . import config
 from .database import User
@@ -48,17 +49,19 @@ def require(
         user = await get_user(event.get_user_id())
 
         if superuser and not user.id in config.supermgr_ids:
-            await matcher.finish("\n您没有权限使用此功能！", at_sender=True)
+            await matcher.finish("\n您没有权限使用此功能！", at_sender=at_sender(event))
 
         if cost_coins:
             if user.coins < cost_coins:
                 await matcher.finish(
-                    f"\n您的积分不足，至少需要{cost_coins}。", at_sender=True
+                    f"\n您的积分不足，至少需要{cost_coins}。",
+                    at_sender=at_sender(event),
                 )
             if not only_check:
                 await user.inc({User.coins: -cost_coins})
                 await matcher.send(
-                    f"\n您已被扣除所需的{cost_coins}点积分！", at_sender=True
+                    f"\n您已被扣除所需的{cost_coins}点积分！",
+                    at_sender=at_sender(event),
                 )
                 await asyncio.sleep(1)
         return user
@@ -71,7 +74,9 @@ def reply(required: bool = False) -> Reply | None:
 
     async def _reply(matcher: Matcher, event: MessageEvent):
         if required and not event.reply:
-            await matcher.finish("\n必须回复一条消息才能使用此功能", at_sender=True)
+            await matcher.finish(
+                "\n必须回复一条消息才能使用此功能", at_sender=at_sender(event)
+            )
         return event.reply
 
     return Depends(_reply, validate=True)
@@ -109,6 +114,53 @@ get_flow_replies = Depends(_get_flow_replies, validate=True)
 
 def boolize(i: str | None) -> bool:
     return i.strip()[0].lower() in ("t", "y", "是", "真", "启") if i else False
+
+
+def at_sender(event: MessageEvent) -> bool:
+    "私聊不进行 @，仅在群聊中 @ 发送者"
+    return event.message_type != "private"
+
+
+def _strip_leading_newline(
+    message: str | Message | MessageSegment,
+) -> str | Message | MessageSegment:
+    "移除消息开头的空行（没有 @ 垫底时，开头的 \\n 会显示为多余空行）"
+    if isinstance(message, str):
+        return message.lstrip("\n")
+    if isinstance(message, MessageSegment):
+        if message.type == "text":
+            return MessageSegment.text(message.data.get("text", "").lstrip("\n"))
+        return message
+    for i, seg in enumerate(message):
+        if seg.type == "text":
+            text = seg.data.get("text", "")
+            stripped = text.lstrip("\n")
+            if stripped != text:
+                if stripped:
+                    seg.data["text"] = stripped
+                else:
+                    del message[i]
+            break
+    return message
+
+
+async def _send(
+    bot: Bot,
+    event: Event,
+    message: str | Message | MessageSegment,
+    at_sender: bool = False,
+    reply_message: bool = False,
+    **params: Any,
+) -> Any:
+    "适配器发送钩子：有 @ 才带 \\n，无 @（私聊）去掉开头的 \\n"
+    if not (at_sender and getattr(event, "message_type", None) != "private"):
+        message = _strip_leading_newline(message)
+    return await ob_send(
+        bot, event, message, at_sender=at_sender, reply_message=reply_message, **params
+    )
+
+
+Bot.send_handler = _send  # pyright: ignore[reportAttributeAccessIssue]  # monkey-patch 适配器发送，统一处理 @ 与开头的 \n
 
 
 def get_session_id(event: MessageEvent) -> str:

@@ -8,7 +8,6 @@ from os import mkdir, rmdir, remove
 from os.path import isdir
 from typing import Annotated
 from uuid import uuid4
-from importlib import import_module
 import re
 
 from nonebot import on_command
@@ -36,10 +35,8 @@ from py7zr import SevenZipFile
 from httpx import AsyncClient
 
 from .. import config
-from ..bot_utils import get_flow_replies, Reply, reply_segment
+from ..bot_utils import get_flow_replies, Reply, reply_segment, at_sender
 from ..help import Help
-
-import_module(".fileserver", __package__)
 
 Help.append_help("""
 【图片搜索】
@@ -66,9 +63,9 @@ FindBookMatcher = on_alconna(Alconna("找本子", Args["image?", Image]), block=
 
 
 @FindBookMatcher.handle()
-async def find_book(image: Match[Image]):
+async def find_book(image: Match[Image], event: MessageEvent):
     if not image.available:
-        await FindBookMatcher.finish("用法：找本子 [图片]", at_sender=True)
+        await FindBookMatcher.finish("用法：找本子 [图片]", at_sender=at_sender(event))
 
     ex_cookie = (config.imagesearch.exhentai_cookies or "").strip()
 
@@ -77,7 +74,7 @@ async def find_book(image: Match[Image]):
 
     if not res.raw:
         await FindBookMatcher.send(
-            f"\n{image.result.url}\n没有找到本子", at_sender=True
+            f"\n{image.result.url}\n没有找到本子", at_sender=at_sender(event)
         )
 
     for r in res.raw:
@@ -86,7 +83,7 @@ async def find_book(image: Match[Image]):
             f"\n{r.type} {r.date}"
             f'\n{" ".join(r.tags)}'
             f"\n{r.url}",
-            at_sender=True,
+            at_sender=at_sender(event),
         )
 
     await FindBookMatcher.finish()
@@ -98,9 +95,11 @@ DownloadBookMatcher = on_alconna(Alconna("下本子", Args["url?", "url"]), bloc
 @DownloadBookMatcher.handle()
 async def download_book(url: Match[str], bot: Bot, event: MessageEvent):
     if not url.available:
-        await DownloadBookMatcher.finish("\n用法：下本子 [url]", at_sender=True)
+        await DownloadBookMatcher.finish(
+            "\n用法：下本子 [url]", at_sender=at_sender(event)
+        )
 
-    await DownloadBookMatcher.send("\n开始下载...", at_sender=True)
+    await DownloadBookMatcher.send("\n开始下载...", at_sender=at_sender(event))
 
     uuid = uuid4().hex
 
@@ -113,15 +112,19 @@ async def download_book(url: Match[str], bot: Bot, event: MessageEvent):
 
     album_filename = santize_album_name(album_name)
 
-    await DownloadBookMatcher.send(f"\n下载完成：{album_name}\n打包中", at_sender=True)
+    await DownloadBookMatcher.send(
+        f"\n下载完成：{album_name}\n打包中", at_sender=at_sender(event)
+    )
 
     with SevenZipFile(f"downloads/{uuid}.7z", "w", password=uuid) as archive:
         archive.writeall(f"downloads/{uuid}")
 
-    await DownloadBookMatcher.send(f"\n{album_name}打包完成，上传中", at_sender=True)
+    await DownloadBookMatcher.send(
+        f"\n{album_name}打包完成，上传中", at_sender=at_sender(event)
+    )
 
-    host = config.imagesearch.remote_host
-    port = config.imagesearch.remote_port or config.imagesearch.file_server_port
+    host = config.fileserver.remote_host
+    port = config.fileserver.remote_port or config.fileserver.file_server_port
 
     if isinstance(event, GroupMessageEvent):
         await bot.upload_group_file(
@@ -140,12 +143,13 @@ async def download_book(url: Match[str], bot: Bot, event: MessageEvent):
     remove(f"downloads/{uuid}.7z")
 
     await DownloadBookMatcher.finish(
-        f"\n{album_name}上传完成\n密码：{uuid}", at_sender=True
+        f"\n{album_name}上传完成\n密码：{uuid}", at_sender=at_sender(event)
     )
 
 
 async def _send_search_results(
     matcher: Matcher,
+    event: MessageEvent,
     query: str,
     limit: int,
     exh: bool,
@@ -158,16 +162,18 @@ async def _send_search_results(
         res = await ehentai.search(query=query, exhentai=exh, next=next)
 
     if not res.galleries:
-        await matcher.finish("\n没有找到结果", at_sender=True)
+        await matcher.finish("\n没有找到结果", at_sender=at_sender(event))
 
     reply_id = msgId
     for g in res.galleries[:limit]:
         data = await matcher.send(
-            reply_segment(reply_id) + MessageSegment.image(g.thumbnail) + f"\n{g.title}"
+            reply_segment(reply_id)
+            + MessageSegment.image(g.thumbnail)  # pyright: ignore[reportArgumentType]
+            + f"\n{g.title}"
             f"\n{g.type} ⭐{g.rate} {g.published:%Y-%m-%d}"
             f'\n{" ".join(g.tags)}'
             f"\n{g.url}",
-            at_sender=True,
+            at_sender=at_sender(event),
         )
         reply_id: int = data["message_id"]
 
@@ -190,13 +196,15 @@ async def search_book(
 ):
     if not query.available:
         await SearchBookMatcher.finish(
-            "\n用法：搜本子 <关键词> [-l 数量] [-e]", at_sender=True
+            "\n用法：搜本子 <关键词> [-l 数量] [-e]", at_sender=at_sender(event)
         )
 
     limit = arp.query[int]("limit.limit") or 5
     use_exh = arp.find("exh")
 
-    await _send_search_results(matcher, query.result, limit, use_exh, event.message_id)
+    await _send_search_results(
+        matcher, event, query.result, limit, use_exh, event.message_id
+    )
 
     await SearchBookMatcher.finish()
 
@@ -211,23 +219,28 @@ async def next_page(
     event: MessageEvent,
 ):
     if not replies:
-        await NextPageMatcher.finish("\n用法：[reply] 下一页", at_sender=True)
+        await NextPageMatcher.finish(
+            "\n用法：[reply] 下一页", at_sender=at_sender(event)
+        )
 
     arp = search_alconna.parse(replies[0].message.extract_plain_text())
     query = arp.query[str]("query")
     last_msg = replies[-1].message.extract_plain_text()
     match = re.search(r"/g/(\d+)/[a-z0-9]+/", last_msg)
     if not match:
-        await NextPageMatcher.finish("\n没有找到上一页的结果", at_sender=True)
+        await NextPageMatcher.finish(
+            "\n没有找到上一页的结果", at_sender=at_sender(event)
+        )
 
     if not query:
-        await NextPageMatcher.finish("\n错误的引用", at_sender=True)
+        await NextPageMatcher.finish("\n错误的引用", at_sender=at_sender(event))
 
     limit = arp.query[int]("limit.limit") or 5
     use_exh = arp.find("exh")
 
     await _send_search_results(
         matcher=matcher,
+        event=event,
         query=query,
         limit=limit,
         next=int(match.group(1)),

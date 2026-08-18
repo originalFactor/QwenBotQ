@@ -7,6 +7,8 @@ from nonebot import on_command
 from nonebot.permission import SUPERUSER
 from nonebot.adapters.onebot.v11 import Bot, MessageEvent, PrivateMessageEvent
 
+from .bot_utils import at_sender
+
 
 class Help:
     msg: str = "QwenBotQ 命令列表"
@@ -37,5 +39,5 @@ async def show_help(bot: Bot, event: MessageEvent):
         bot, event
     )
     await HelpMatcher.finish(
-        f"\n{Help.get_help(show_superuser)}", at_sender=True
+        f"\n{Help.get_help(show_superuser)}", at_sender=at_sender(event)
     )
