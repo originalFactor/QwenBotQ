@@ -4,8 +4,9 @@
 # https://opensource.org/licenses/MIT
 
 
-from os import mkdir, rmdir, remove
-from os.path import isdir
+from os import mkdir, remove
+from os.path import isdir, isfile
+from shutil import rmtree
 from typing import Annotated
 from uuid import uuid4
 import re
@@ -125,22 +126,30 @@ async def download_book(url: Match[str], bot: Bot, event: MessageEvent):
 
     host = config.fileserver.remote_host
     port = config.fileserver.remote_port or config.fileserver.file_server_port
+    file_url = f"http://{host}:{port}/{uuid}.7z"
 
-    if isinstance(event, GroupMessageEvent):
-        await bot.upload_group_file(
-            group_id=event.group_id,
-            file=f"http://{host}:{port}/{uuid}.7z",
-            name=f"{album_filename}.7z",
+    try:
+        if isinstance(event, GroupMessageEvent):
+            await bot.upload_group_file(
+                group_id=event.group_id,
+                file=file_url,
+                name=f"{album_filename}.7z",
+            )
+        else:
+            await bot.upload_private_file(
+                user_id=event.user_id,
+                file=file_url,
+                name=f"{album_filename}.7z",
+            )
+    except Exception as e:
+        await DownloadBookMatcher.finish(
+            f"\n上传失败：{e}\n请检查 {file_url} 是否可从 OneBot 端访问",
+            at_sender=at_sender(event),
         )
-    else:
-        await bot.upload_private_file(
-            user_id=event.user_id,
-            file=f"http://{host}:{port}/{uuid}.7z",
-            name=f"{album_filename}.7z",
-        )
-
-    rmdir(f"downloads/{uuid}")
-    remove(f"downloads/{uuid}.7z")
+    finally:
+        rmtree(f"downloads/{uuid}", ignore_errors=True)
+        if isfile(f"downloads/{uuid}.7z"):
+            remove(f"downloads/{uuid}.7z")
 
     await DownloadBookMatcher.finish(
         f"\n{album_name}上传完成\n密码：{uuid}", at_sender=at_sender(event)
