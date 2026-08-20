@@ -23,6 +23,7 @@ async def chat(
     presence_penalty: float,
     max_tokens: int | None,
     thinking: bool,
+    usage: dict | None = None,
 ) -> AsyncGenerator[tuple[str, list[dict]], Any]:
     assert config.ai
 
@@ -51,6 +52,7 @@ async def chat(
                     extra_body={
                         "thinking": {"type": "enabled" if thinking else "disabled"}
                     },
+                    stream_options={"include_usage": True},
                     user="QwenBotQ",
                 )
             )
@@ -61,6 +63,12 @@ async def chat(
             callings = {}
 
             async for chunk in response:
+                # 记录实际使用量（流式末尾 chunk 携带 usage）
+                if usage is not None and chunk.usage is not None:
+                    usage["prompt_tokens"] = chunk.usage.prompt_tokens
+                    usage["completion_tokens"] = chunk.usage.completion_tokens
+                    usage["total_tokens"] = chunk.usage.total_tokens
+
                 # 有数据
                 if not chunk.choices:
                     continue

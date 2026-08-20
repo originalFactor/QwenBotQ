@@ -9,8 +9,7 @@
 """
 
 import asyncio
-import re
-from typing import Annotated, cast, Any
+from typing import Annotated, Any
 from collections.abc import Callable, Awaitable
 
 from nonebot.matcher import Matcher
@@ -83,18 +82,10 @@ def reply(required: bool = False) -> Reply | None:
 
 
 def reply_segment(id: int) -> Message:
-    return MessageSegment.reply(id) + f"r{{{id}}}\n"
+    return Message(MessageSegment.reply(id))
 
 
 def preprocess_reply(msg: Message) -> Message:
-    if r := msg["text"]:
-        data = cast(dict[str, str], r[0].data)
-        if match := re.search(r"r\{(\d+?)\}", data["text"]):
-            if not msg["reply"]:
-                msg.append(MessageSegment.reply(int(match.group(1))))
-            data["text"] = data["text"].replace(match.group(0), "")
-            if not data["text"].strip():
-                msg.remove(r[0])
     return msg
 
 
@@ -168,6 +159,13 @@ def get_session_id(event: MessageEvent) -> str:
     if isinstance(event, GroupMessageEvent):
         return f"g{event.group_id}"
     return f"u{event.user_id}"
+
+
+def is_group_admin_or_owner(event: MessageEvent) -> bool:
+    "群聊中是否为群管/群主（私聊恒为 False）"
+    if not isinstance(event, GroupMessageEvent):
+        return False
+    return bool(event.sender.role in ("owner", "admin"))
 
 
 session_id_depends = Depends(get_session_id, validate=True)

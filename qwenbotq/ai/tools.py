@@ -4,8 +4,7 @@
 # https://opensource.org/licenses/MIT
 
 from collections.abc import Sequence, Mapping
-
-from nonebot.adapters.onebot.v11.event import Reply
+from typing import Any
 
 from .. import config
 from ..database import Agent
@@ -30,28 +29,28 @@ async def get_sysprompt(id: str) -> Agent | AgentLike | None:
     return None
 
 
-def tokenize(messages: Sequence[Mapping[str, str]]) -> int:
-    return sum(len(_["content"]) + 4 for _ in messages)
+def content_to_text(content: Any) -> str:
+    "把 OpenAI content（str 或 vision 内容数组）序列化为纯文本"
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for part in content:
+            if isinstance(part, dict):
+                if part.get("type") == "text":
+                    parts.append(part.get("text", ""))
+                elif part.get("type") == "image_url":
+                    url = (part.get("image_url") or {}).get("url", "")
+                    if url:
+                        parts.append(f"[图片:{url}]")
+        return "\n".join(parts)
+    return str(content)
+
+
+def tokenize(messages: Sequence[Mapping[str, Any]]) -> int:
+    return sum(len(content_to_text(_["content"])) + 4 for _ in messages)
 
 
 def blocked_by_unsafe(agent: Agent | AgentLike, session_id: str) -> bool:
     "unsafe 智能体仅限私聊会话（u{...}）使用，群聊会话返回 True"
     return bool(getattr(agent, "unsafe", False)) and session_id.startswith("g")
-
-
-def construct_history(replies: Sequence[Reply], self_id: int) -> list[dict[str, str]]:
-    messages = []
-    last_role: str | None = None
-    for r in replies:
-        content = r.message.extract_plain_text().strip()
-        if not content:
-            continue
-        if content.startswith("\u200b"):
-            continue
-        role = "assistant" if r.sender.user_id == self_id else "user"
-        if last_role == role:
-            messages[-1]["content"] += "\n\n" + content
-            continue
-        messages.append({"role": role, "content": content})
-        last_role = role
-    return messages

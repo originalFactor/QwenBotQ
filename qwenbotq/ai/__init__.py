@@ -11,11 +11,10 @@ from json import dumps
 from time import perf_counter
 from typing import Annotated, Any, NoReturn
 from urllib.error import HTTPError
-from collections.abc import Sequence
 from datetime import date
 
 # Nonebot imports
-from nonebot import on_message, on_command
+from nonebot import on_message, on_command, get_driver
 from nonebot.log import logger
 from nonebot.rule import Rule
 from nonebot.adapters.onebot.v11 import (
@@ -23,31 +22,42 @@ from nonebot.adapters.onebot.v11 import (
     MessageEvent,
     MessageSegment,
 )
-from nonebot.adapters.onebot.v11.event import Reply
 from arclet.alconna import Alconna, Args, Option, Arparma
 from nonebot_plugin_alconna import MultiVar, on_alconna, Match
 
 # Local imports
 from .. import config
-from ..database import User, get_vip, Agent, get_session_agent, set_session_agent
+from ..database import (
+    User,
+    get_vip,
+    Agent,
+    get_session_agent,
+    set_session_agent,
+    get_session_context,
+    replace_session_messages,
+    clear_session_context,
+)
 from ..bot_utils import (
     require,
-    get_flow_replies,
     get_session_id,
     reply_segment,
     at_sender,
+    is_group_admin_or_owner,
 )
-from .tools import get_sysprompt, construct_history, tokenize, blocked_by_unsafe
+from .tools import get_sysprompt, tokenize, content_to_text, blocked_by_unsafe
 from .core import chat
+from .summarize import summarize_context
+from ..models_dev import autofill_models
 from ..help import Help
 
 Help.append_help("""
 【AI 助手】
 @我 <消息> — 与 AI 对话
-设置系统提示词 <名称> — 切换本会话智能体（unsafe 仅私聊可用）
+设置系统提示词 <名称> — 切换本会话智能体（群聊仅群管/群主，unsafe 仅私聊可用）
 更改模型 [模型ID] — 切换 AI 模型
 会话信息 — 查看当前会话状态
 添加智能体 <名称> <提示词> [选项] — 添加智能体（--unsafe 标记仅私聊可用）
+!clear — 清空当前会话上下文（群聊仅群管/群主，私聊仅超级管理员）
 !delagent <名称> — 删除智能体（管理员）
 !editagent <名称> [选项] — 修改智能体属性（管理员）
 !renewvip <会话ID> <天数> — 续期 AI VIP（管理员）
@@ -69,8 +79,41 @@ def not_from_bot(event: MessageEvent, bot: Bot) -> bool:
 
 
 def has_text(event: MessageEvent) -> bool:
-    "排除无文本内容的消息（纯文件/纯图片等）"
-    return bool(event.get_plaintext().strip())
+    "排除无文本且无图片的内容（纯文件等）"
+    return bool(event.get_plaintext().strip()) or bool(event.message["image"])
+
+
+# 模型未设置 context_length 时的上下文长度回退值（用于触发总结）
+FALLBACK_CONTEXT_LENGTH = 8192
+
+
+def build_user_content(event: MessageEvent, prompt: str) -> tuple[Any, str]:
+    "组装本轮 user 内容：回复引用 + 文本 + 图片；返回 (OpenAI content, 文本版用于记忆)"
+    parts = []
+    if event.reply and event.reply.message:
+        reply_text = event.reply.message.extract_plain_text().strip()
+        if reply_text:
+            parts.append("\n".join(f"> {line}" for line in reply_text.splitlines()))
+
+    images = [
+        (seg.data.get("url") or seg.data.get("file") or "").strip()
+        for seg in event.message
+        if seg.type == "image"
+    ]
+    images = [u for u in images if u]
+
+    text = "\n\n".join(parts)
+    if prompt:
+        text = (text + "\n\n" if text else "") + prompt
+
+    if images:
+        content: list[dict] = []
+        if text:
+            content.append({"type": "text", "text": text})
+        for url in images:
+            content.append({"type": "image_url", "image_url": {"url": url}})
+        return content, text
+    return text, text
 
 
 # 大模型回复匹配器
@@ -80,8 +123,6 @@ LLMMatcher = on_message(rule=Rule(strict_to_me, not_from_bot, has_text), priorit
 @LLMMatcher.handle()
 async def llm(
     user: Annotated[User, require()],
-    replies: Annotated[Sequence[Reply] | None, get_flow_replies],
-    bot: Bot,
     event: MessageEvent,
 ) -> NoReturn:
     "大模型回复"
@@ -110,19 +151,21 @@ async def llm(
         f"Model check done with {user.model}, cost: {(perf_counter() - t0) * 1000:.2f}ms"
     )
 
-    # 检查是否有提示词
+    # 检查是否有效内容（文本或图片）
     t0 = perf_counter()
     prompt = event.get_plaintext().strip()
-    if not prompt:
+    if not prompt and not event.message["image"]:
         await LLMMatcher.finish(
             "\n虽然你啥也没说，但是我记住你了！", at_sender=at_sender(event)
         )
     logger.debug(f"Prompt check done!, cost: {(perf_counter() - t0) * 1000:.2f}ms")
 
-    # 构建历史消息
+    # 读取持久化上下文
     t0 = perf_counter()
-    messages = construct_history(replies or [], int(bot.self_id))
-    messages.append({"role": "user", "content": prompt})
+    ctx = await get_session_context(session_id)
+    messages = ctx.messages
+    user_content, user_text = build_user_content(event, prompt)
+    messages.append({"role": "user", "content": user_content})
 
     agent = await get_sysprompt(await get_session_agent(session_id))
 
@@ -161,13 +204,14 @@ async def llm(
         t0 = perf_counter()
         from .memory import get_memprompt
 
-        agent.prompt += "\n" + await get_memprompt(session_id, prompt)
+        agent.prompt += "\n" + await get_memprompt(session_id, user_text)
         logger.debug(f"Memory search done!, cost: {(perf_counter() - t0) * 1000:.2f}ms")
 
     # 流式回复track
     reply_id = event.message_id
     msgs = []
     para_no = 1
+    usage: dict = {}
     chat_start_time = perf_counter()
 
     try:
@@ -180,6 +224,7 @@ async def llm(
             agent.presence_penalty,
             agent.max_tokens,
             agent.thinking,
+            usage,
         ):
             logger.debug(f"Sending paragraph {para_no} with reply_id {reply_id}.")
             data = await LLMMatcher.send(reply_segment(reply_id) + paragraph[0])
@@ -191,14 +236,45 @@ async def llm(
             f"Reply done!, chat cost: {(perf_counter() - chat_start_time) * 1000:.2f}ms"
         )
 
+        # 追加上下文并持久化（msgs 含插入到 0 的 system，存储时去掉）
+        persist = (
+            msgs[1:] if msgs else [m for m in messages if m.get("role") != "system"]
+        )
+        total_tokens = usage.get("total_tokens")
+        if total_tokens is None:
+            total_tokens = tokenize(persist)
+        await replace_session_messages(session_id, persist, int(total_tokens))
+
+        # 写入记忆（文本序列化）
         if config.ai.memory:
             t0 = perf_counter()
             from .memory import add_memory
 
-            await add_memory(session_id, msgs[1:])
+            text_msgs = [
+                {"role": m.get("role"), "content": content_to_text(m.get("content"))}
+                for m in persist
+            ]
+            await add_memory(session_id, text_msgs)
             logger.debug(f"Memory done!, cost: {(perf_counter() - t0) * 1000:.2f}ms")
 
-        logger.debug(dumps(msgs, ensure_ascii=False, indent=2))
+        # 达阈值自动总结并覆盖上下文
+        if (usage_total := usage.get("total_tokens")) is not None:
+            context_length = model.context_length or FALLBACK_CONTEXT_LENGTH
+            threshold = int(context_length * config.ai.summarize_threshold)
+            if int(usage_total) >= threshold:
+                summary = await summarize_context(user.model, persist)
+                summarized = [
+                    {"role": "user", "content": "（历史对话已总结）\n" + summary}
+                ]
+                await replace_session_messages(
+                    session_id, summarized, tokenize(summarized)
+                )
+                await LLMMatcher.send(
+                    "\n上下文已接近上限，已自动总结历史对话以继续。",
+                    at_sender=at_sender(event),
+                )
+
+        logger.debug(dumps(persist, ensure_ascii=False, indent=2))
         logger.debug(
             f"llm function total cost: {(perf_counter() - start_time) * 1000:.2f}ms"
         )
@@ -229,6 +305,17 @@ async def set_prompt(
         )
 
     session_id = get_session_id(event)
+
+    # 群聊切换会话智能体仅限群管/群主或超级管理员
+    if session_id.startswith("g") and (
+        event.get_user_id() not in config.supermgr_ids
+        and not is_group_admin_or_owner(event)
+    ):
+        await PromptMatcher.finish(
+            "\n仅群管/群主（或超级管理员）可以切换本群智能体。",
+            at_sender=at_sender(event),
+        )
+
     agent = await get_sysprompt(prompt_name.result)
 
     if not agent:
@@ -243,6 +330,42 @@ async def set_prompt(
     await PromptMatcher.finish(
         "\n已尝试更新本会话的系统提示词", at_sender=at_sender(event)
     )
+
+
+# 清空当前会话上下文
+ClearContextMatcher = on_command("!clear", block=True)
+
+
+@ClearContextMatcher.handle()
+async def clear_context(
+    event: MessageEvent,
+) -> NoReturn:
+    "清空当前会话上下文（群聊仅群管/群主，私聊仅超级管理员）"
+
+    session_id = get_session_id(event)
+    is_superuser = event.get_user_id() in config.supermgr_ids
+    if session_id.startswith("g"):
+        if not (is_superuser or is_group_admin_or_owner(event)):
+            await ClearContextMatcher.finish(
+                "\n仅群管/群主（或超级管理员）可以清空本群上下文。",
+                at_sender=at_sender(event),
+            )
+    elif not is_superuser:
+        await ClearContextMatcher.finish(
+            "\n仅超级管理员可以清空私聊会话的上下文。", at_sender=at_sender(event)
+        )
+
+    await clear_session_context(session_id)
+    await ClearContextMatcher.finish(
+        "\n已清空本会话的上下文。", at_sender=at_sender(event)
+    )
+
+
+@get_driver().on_startup
+async def autofill_model_metadata():
+    "启动时从 models.dev 补全未填写的模型元数据"
+    assert config.ai
+    await autofill_models(config.ai.models_dev, config.ai.models)
 
 
 # 更换模型匹配器

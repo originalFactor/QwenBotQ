@@ -84,6 +84,15 @@ class CloudMemoryConfig(BaseModel):
     threshold: float = 0.8
 
 
+class ModelsDevConfig(BaseModel):
+    "models.dev 自动补全配置"
+
+    enable: bool = True  # 是否启用自动补全
+    url: str = "https://models.dev/models.json"  # 数据源地址
+    cache_path: str = "downloads/models_dev.json"  # 本地缓存路径
+    refresh_days: int = 7  # 缓存有效期（天）
+
+
 class LLMConfig(BaseModel):
     "大模型配置"
 
@@ -92,3 +101,5 @@ class LLMConfig(BaseModel):
     default_prompts: DefaultPromptsConfig = DefaultPromptsConfig()
     tools: LLMToolsConfig = LLMToolsConfig()
     memory: LocalMemoryConfig | CloudMemoryConfig | None = None
+    summarize_threshold: float = 0.8  # 上下文累计 token 达到该比例阈值时自动总结
+    models_dev: ModelsDevConfig = ModelsDevConfig()  # models.dev 自动补全

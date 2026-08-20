@@ -21,6 +21,12 @@ from .sessionagent import (
     get_session_agent,
     set_session_agent,
 )
+from .sessioncontext import (
+    SessionContext,
+    get_session_context,
+    replace_session_messages,
+    clear_session_context,
+)
 from . import core
 
 __all__ = [
@@ -39,5 +45,9 @@ __all__ = [
     "SessionAgent",
     "get_session_agent",
     "set_session_agent",
+    "SessionContext",
+    "get_session_context",
+    "replace_session_messages",
+    "clear_session_context",
     "get_biggest_coins",
 ]

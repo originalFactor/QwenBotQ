@@ -46,6 +46,16 @@ ai:
       token: sk-your-bocha-token-here # (*）
       endpoint: https://api.bocha.cn/v1/web-search
 
+  # 上下文总结阈值（0~1，相对模型 context_length；累计 token 达到该比例时自动总结并覆盖上下文）
+  summarize_threshold: 0.8
+
+  # models.dev 自动补全（可选，不填则使用默认值；仅补全未填写的字段，不覆盖已设置值）
+  models_dev:
+    enable: true # 是否启用自动补全
+    url: https://models.dev/models.json # 数据源地址
+    cache_path: downloads/models_dev.json # 本地缓存路径（运行时目录，不纳入版本管理）
+    refresh_days: 7 # 缓存有效期（天）
+
   # 记忆（RAG）配置（可选，不填则关闭记忆功能）
   memory:
     llm: # （*）
