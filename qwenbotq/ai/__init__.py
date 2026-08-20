@@ -7,7 +7,6 @@
 "AI助手模块"
 
 # Standard imports
-from re import search
 from json import dumps
 from time import perf_counter
 from typing import Annotated, Any, NoReturn
@@ -30,7 +29,7 @@ from nonebot_plugin_alconna import MultiVar, on_alconna, Match
 
 # Local imports
 from .. import config
-from ..database import User, get_vip, Agent
+from ..database import User, get_vip, Agent, get_session_agent, set_session_agent
 from ..bot_utils import (
     require,
     get_flow_replies,
@@ -38,17 +37,17 @@ from ..bot_utils import (
     reply_segment,
     at_sender,
 )
-from .tools import get_sysprompt, construct_history, tokenize
+from .tools import get_sysprompt, construct_history, tokenize, blocked_by_unsafe
 from .core import chat
 from ..help import Help
 
 Help.append_help("""
 【AI 助手】
 @我 <消息> — 与 AI 对话
-设置系统提示词 <名称> — 切换智能体
+设置系统提示词 <名称> — 切换本会话智能体（unsafe 仅私聊可用）
 更改模型 [模型ID] — 切换 AI 模型
 会话信息 — 查看当前会话状态
-添加智能体 <名称> <提示词> [选项] — 添加智能体
+添加智能体 <名称> <提示词> [选项] — 添加智能体（--unsafe 标记仅私聊可用）
 !delagent <名称> — 删除智能体（管理员）
 !editagent <名称> [选项] — 修改智能体属性（管理员）
 !renewvip <会话ID> <天数> — 续期 AI VIP（管理员）
@@ -125,15 +124,10 @@ async def llm(
     messages = construct_history(replies or [], int(bot.self_id))
     messages.append({"role": "user", "content": prompt})
 
-    for msg in messages:
-        if match := search(r"a\{(\S+?)\}", msg["content"]):
-            msg["content"] = msg["content"].replace(match.group(0), "")
-            user.system_prompt = match.group(1)
-
-    agent = await get_sysprompt(user.system_prompt)
+    agent = await get_sysprompt(await get_session_agent(session_id))
 
     if not agent:
-        await user.set({User.system_prompt: "DEFAULT"})
+        await set_session_agent(session_id, "DEFAULT")
         await LLMMatcher.send(
             "\n您的系统提示词配置有误，已自动重置为默认提示词。",
             at_sender=at_sender(event),
@@ -141,6 +135,11 @@ async def llm(
         agent = await get_sysprompt("DEFAULT")
 
     assert agent
+
+    if blocked_by_unsafe(agent, session_id):
+        await LLMMatcher.finish(
+            "\n该智能体仅限私聊会话使用。", at_sender=at_sender(event)
+        )
 
     model = models[user.model]
     predicted_tokens = tokenize(messages)
@@ -183,11 +182,7 @@ async def llm(
             agent.thinking,
         ):
             logger.debug(f"Sending paragraph {para_no} with reply_id {reply_id}.")
-            data = await LLMMatcher.send(
-                reply_segment(reply_id)
-                + (f"a{{{user.system_prompt}}}\n" if para_no == 1 else "")
-                + paragraph[0]
-            )
+            data = await LLMMatcher.send(reply_segment(reply_id) + paragraph[0])
             reply_id = data["message_id"]
             msgs = paragraph[1]
             para_no += 1
@@ -221,7 +216,6 @@ PromptMatcher = on_alconna(prompt_cmd, block=True)
 
 @PromptMatcher.handle()
 async def set_prompt(
-    user: Annotated[User, require()],
     prompt_name: Match[str],
     event: MessageEvent,
 ) -> NoReturn:
@@ -234,14 +228,20 @@ async def set_prompt(
             at_sender=at_sender(event),
         )
 
-    agent = await Agent.get(prompt_name.result)
+    session_id = get_session_id(event)
+    agent = await get_sysprompt(prompt_name.result)
 
-    if not (prompt_name.result in ["DEFAULT", "UNSAFE"] or agent):
+    if not agent:
         await PromptMatcher.finish("\n智能体不存在。", at_sender=at_sender(event))
 
-    await user.set({User.system_prompt: prompt_name.result})
+    if blocked_by_unsafe(agent, session_id):
+        await PromptMatcher.finish(
+            "\n该智能体仅限私聊会话使用。", at_sender=at_sender(event)
+        )
+
+    await set_session_agent(session_id, prompt_name.result)
     await PromptMatcher.finish(
-        "\n已尝试更新您的专属系统提示词", at_sender=at_sender(event)
+        "\n已尝试更新本会话的系统提示词", at_sender=at_sender(event)
     )
 
 
@@ -369,6 +369,11 @@ add_agent_cmd = Alconna(
     ),
     Option("--max_tokens|-m", Args["max_tokens", int], help_text="最大输出长度"),
     Option("--thinking|-T", Args["thinking", bool], help_text="是否开启思考模式"),
+    Option(
+        "--unsafe|-u",
+        Args["unsafe", bool],
+        help_text="是否标记为unsafe（仅限私聊会话使用）",
+    ),
 )
 AddAgentMatcher = on_alconna(add_agent_cmd, block=True)
 
@@ -390,7 +395,8 @@ async def add_agent(
             "  -f/--frequency_penalty <值> —— 频率惩罚 (默认0.0)\n"
             "  -p/--presence_penalty <值> —— 存在惩罚 (默认0.0)\n"
             "  -m/--max_tokens <值> —— 最大输出长度\n"
-            "  -T/--thinking —— 是否开启思考模式 (默认False)\n",
+            "  -T/--thinking —— 是否开启思考模式 (默认False)\n"
+            "  -u/--unsafe <值> —— 标记为 unsafe（仅限私聊会话使用，默认False)\n",
             at_sender=at_sender(event),
         )
 
@@ -414,6 +420,8 @@ async def add_agent(
         agent.max_tokens = m
     if (t := arp.query[bool]("thinking.thinking")) is not None:
         agent.thinking = t
+    if (u := arp.query[bool]("unsafe.unsafe")) is not None:
+        agent.unsafe = u
     await agent.insert()
     await AddAgentMatcher.finish(
         f"\n已成功添加智能体 {agent_name.result}",
@@ -470,6 +478,11 @@ edit_agent_cmd = Alconna(
     ),
     Option("--max_tokens|-m", Args["max_tokens", int], help_text="最大输出长度"),
     Option("--thinking|-T", Args["thinking", bool], help_text="是否开启思考模式"),
+    Option(
+        "--unsafe|-u",
+        Args["unsafe", bool],
+        help_text="是否标记为unsafe（仅限私聊会话使用）",
+    ),
 )
 EditAgentMatcher = on_alconna(edit_agent_cmd, block=True)
 
@@ -492,7 +505,8 @@ async def edit_agent(
             "  -f/--frequency_penalty <值> —— 频率惩罚\n"
             "  -p/--presence_penalty <值> —— 存在惩罚\n"
             "  -m/--max_tokens <值> —— 最大输出长度\n"
-            "  -T/--thinking —— 是否开启思考模式 (默认False)\n",
+            "  -T/--thinking —— 是否开启思考模式 (默认False)\n"
+            "  -u/--unsafe <值> —— 标记为 unsafe（仅限私聊会话使用，默认False)\n",
             at_sender=at_sender(event),
         )
 
@@ -505,7 +519,7 @@ async def edit_agent(
     if not agent:
         await EditAgentMatcher.finish("\n该智能体不存在。", at_sender=at_sender(event))
 
-    updates: dict[str, str | float | int] = {}
+    updates: dict[str, str | float | int | bool] = {}
     if (pr := arp.query[tuple[str, ...]]("prompt.prompt")) is not None:
         updates["prompt"] = " ".join(pr)
     if (t := arp.query[float]("temperature.temperature")) is not None:
@@ -518,6 +532,8 @@ async def edit_agent(
         updates["max_tokens"] = m
     if (t := arp.query[bool]("thinking.thinking")) is not None:
         updates["thinking"] = t
+    if (u := arp.query[bool]("unsafe.unsafe")) is not None:
+        updates["unsafe"] = u
 
     if not updates:
         await EditAgentMatcher.finish(

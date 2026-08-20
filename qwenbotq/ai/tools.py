@@ -22,7 +22,7 @@ async def get_sysprompt(id: str) -> Agent | AgentLike | None:
     if id == "UNSAFE":
         return (
             config.ai.default_prompts.unsafe or config.ai.default_prompts.default
-        ).model_copy()
+        ).model_copy(update={"unsafe": True})
 
     agent = await Agent.get(id)
     if agent:
@@ -32,6 +32,11 @@ async def get_sysprompt(id: str) -> Agent | AgentLike | None:
 
 def tokenize(messages: Sequence[Mapping[str, str]]) -> int:
     return sum(len(_["content"]) + 4 for _ in messages)
+
+
+def blocked_by_unsafe(agent: Agent | AgentLike, session_id: str) -> bool:
+    "unsafe 智能体仅限私聊会话（u{...}）使用，群聊会话返回 True"
+    return bool(getattr(agent, "unsafe", False)) and session_id.startswith("g")
 
 
 def construct_history(replies: Sequence[Reply], self_id: int) -> list[dict[str, str]]:

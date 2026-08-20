@@ -16,6 +16,11 @@ from .recalloffset import (
     get_recall_offset,
     set_recall_offset,
 )
+from .sessionagent import (
+    SessionAgent,
+    get_session_agent,
+    set_session_agent,
+)
 from . import core
 
 __all__ = [
@@ -31,5 +36,8 @@ __all__ = [
     "RecallOffset",
     "get_recall_offset",
     "set_recall_offset",
+    "SessionAgent",
+    "get_session_agent",
+    "set_session_agent",
     "get_biggest_coins",
 ]

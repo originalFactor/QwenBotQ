@@ -29,7 +29,6 @@ class User(Document):
     "用户文档"
 
     id: str = Field(default_factory=noid)
-    system_prompt: str = "DEFAULT"
     coins: int = 0
     sign_expire: date = date.min
     model: str = ""

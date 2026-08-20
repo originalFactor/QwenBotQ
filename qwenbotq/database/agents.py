@@ -19,3 +19,4 @@ class Agent(Document):
     presence_penalty: float = 0.0
     max_tokens: int | None = None
     thinking: bool = False
+    unsafe: bool = False

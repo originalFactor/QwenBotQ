@@ -32,7 +32,7 @@ ai:
       presence_penalty: 0.0
       max_tokens: null # （null为继承模型配置）
 
-    # unsafe 提示词（可选，不填则关闭）
+    # unsafe 提示词（可选，不填则关闭；unsafe 智能体仅限私聊会话使用）
     unsafe:
       prompt: "你的自定义提示词" # （*）
       temperature: 1.0

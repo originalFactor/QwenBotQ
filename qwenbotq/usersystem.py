@@ -71,7 +71,6 @@ async def get_information(
             else "未签到\n"
         )
         + f"使用模型：{user.model}\n"
-        f"\t系统提示词：{(_ := user.system_prompt)[:min(len(_), 10)]}...\n"
         "头像："
         + MessageSegment.image(avatar(user.id))
         + "本日老公："
