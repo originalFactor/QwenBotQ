@@ -1,0 +1,3 @@
+[submodule "ehentaix"]
+	path = EHentaiX
+	url = https://github.com/ECSDevs/EhDownloaderLib.git
