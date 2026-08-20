@@ -33,25 +33,33 @@ from nonebot_plugin_apscheduler import scheduler
 
 # local imports
 from . import config
-from .bot_utils import at_sender
+from .bot_utils import at_sender, get_session_id
 from .database.recalloffset import get_recall_offset, set_recall_offset
+from .database.recallsess import (
+    add_recall_session,
+    get_recall_sessions,
+    remove_recall_session,
+)
 from .help import Help
 
 __all__ = []
 
 Help.append_superuser_help("""
 【撤回图片】
+!listenrecalls <sessionId> — 添加监听撤回图片的会话（群 g{群号} / 私聊 u{QQ号}）
+!listlistening — 查看当前监听会话
+!dellistening <sessionId> — 移除指定监听会话
 !getrecalls — 获取已读偏移之后的新撤回图片（多条一并发送）
 !getrecallszip — 将已读偏移之后的新撤回图片打包为zip获取
 !setrecalloffset <偏移> — 手动指定已读偏移
 !delrecalls — 删除当前保存的所有已撤回图片并重置已读偏移
 """)
 
-# 缓存目录与保留天数
+# 缓存目录与保留秒数
 CACHE_DIR = "downloads/cache"  # 正常缓存目录
 RECALLED_DIR = "downloads/recalled"  # 消息被撤回后单独保留的目录
-EXPIRE_DAYS = 2  # 缓存过期天数
-CLEAN_INTERVAL = 3600  # 清理任务轮询间隔（秒）
+EXPIRE_SECONDS = 300  # 缓存过期秒数（5 分钟）
+CLEAN_INTERVAL = 300  # 清理任务轮询间隔（秒）
 
 
 def _ensure_dirs() -> None:
@@ -69,7 +77,10 @@ ImageCacheMatcher = on_message(priority=5, block=False)
 
 @ImageCacheMatcher.handle()
 async def cache_images(event: MessageEvent) -> None:
-    "缓存所有图片消息中的原图"
+    "仅缓存监听会话内图片消息的原图"
+
+    if get_session_id(event) not in await get_recall_sessions():
+        return
 
     images = event.message["image"]
     if not images:
@@ -99,9 +110,17 @@ RecallMatcher = on_notice(priority=1, block=False)
 
 @RecallMatcher.handle()
 async def on_recall(event) -> None:
-    "消息被撤回时，将对应缓存图片转移到单独文件夹（不删除）"
+    "消息被撤回时，将对应缓存图片转移到单独文件夹（不删除），仅监听指定会话"
 
     if not isinstance(event, (GroupRecallNoticeEvent, FriendRecallNoticeEvent)):
+        return
+
+    # 会话ID：群 → g{group_id}，好友 → u{user_id}
+    if isinstance(event, GroupRecallNoticeEvent):
+        sess = f"g{event.group_id}"
+    else:
+        sess = f"u{event.user_id}"
+    if sess not in await get_recall_sessions():
         return
 
     prefix = f"{event.message_id}_"
@@ -127,9 +146,9 @@ async def on_recall(event) -> None:
 
 
 async def cleanup_cache() -> None:
-    "按文件修改时间删除超过保留天数的未撤回缓存图片"
+    "按文件修改时间删除超过保留秒数的未撤回缓存图片"
 
-    cutoff = time.time() - EXPIRE_DAYS * 86400
+    cutoff = time.time() - EXPIRE_SECONDS
     for f in os.listdir(CACHE_DIR):
         p = os.path.join(CACHE_DIR, f)
         if not isfile(p) or os.path.getmtime(p) >= cutoff:
@@ -151,7 +170,9 @@ async def _register_cleanup_job() -> None:
         id="imagecache_cleanup",
         replace_existing=True,
     )
-    logger.info(f"图片缓存功能已启用，缓存目录：{CACHE_DIR}，清理间隔：{CLEAN_INTERVAL}s")
+    logger.info(
+        f"图片缓存功能已启用，缓存目录：{CACHE_DIR}，清理间隔：{CLEAN_INTERVAL}s"
+    )
 
 
 # ===== SUPERUSER 私聊管理命令 =====
@@ -314,3 +335,93 @@ async def set_recall_offset_cmd(event: PrivateMessageEvent) -> None:
     await SetRecallOffsetMatcher.finish(
         f"\n已将已读偏移设为 {offset}", at_sender=at_sender(event)
     )
+
+
+# !listenrecalls：添加监听会话
+ListenRecallsMatcher = on_command(
+    "!listenrecalls",
+    rule=_private_rule,
+    permission=SUPERUSER,
+    priority=1,
+    block=True,
+)
+
+
+@ListenRecallsMatcher.handle()
+async def listen_recalls(event: PrivateMessageEvent) -> None:
+    "添加监听撤回图片的会话"
+
+    parts = event.get_plaintext().strip().split()
+    if len(parts) < 2 or not parts[-1]:
+        await ListenRecallsMatcher.finish(
+            "\n用法：!listenrecalls <sessionId>（群 g{群号} / 私聊 u{QQ号}）",
+            at_sender=at_sender(event),
+        )
+
+    sess = parts[-1]
+    added = await add_recall_session(sess)
+    if added:
+        await ListenRecallsMatcher.finish(
+            f"\n已监听会话 {sess}", at_sender=at_sender(event)
+        )
+    else:
+        await ListenRecallsMatcher.finish(
+            f"\n会话 {sess} 已在监听列表中", at_sender=at_sender(event)
+        )
+
+
+# !listlistening：查看当前监听会话
+ListListeningMatcher = on_command(
+    "!listlistening",
+    rule=_private_rule,
+    permission=SUPERUSER,
+    priority=1,
+    block=True,
+)
+
+
+@ListListeningMatcher.handle()
+async def list_listening(event: PrivateMessageEvent) -> None:
+    "查看当前监听会话"
+
+    sessions = await get_recall_sessions()
+    if not sessions:
+        await ListListeningMatcher.finish(
+            "\n当前未监听任何会话", at_sender=at_sender(event)
+        )
+    await ListListeningMatcher.finish(
+        "\n当前监听会话：\n" + "\n".join(sorted(sessions)),
+        at_sender=at_sender(event),
+    )
+
+
+# !dellistening：移除指定监听会话
+DelListeningMatcher = on_command(
+    "!dellistening",
+    rule=_private_rule,
+    permission=SUPERUSER,
+    priority=1,
+    block=True,
+)
+
+
+@DelListeningMatcher.handle()
+async def del_listening(event: PrivateMessageEvent) -> None:
+    "移除指定监听会话"
+
+    parts = event.get_plaintext().strip().split()
+    if len(parts) < 2 or not parts[-1]:
+        await DelListeningMatcher.finish(
+            "\n用法：!dellistening <sessionId>", at_sender=at_sender(event)
+        )
+
+    sess = parts[-1]
+    removed = await remove_recall_session(sess)
+    if removed:
+        await DelListeningMatcher.finish(
+            f"\n已移除监听会话 {sess}", at_sender=at_sender(event)
+        )
+    else:
+        await DelListeningMatcher.finish(
+            f"\n会话 {sess} 不在监听列表中", at_sender=at_sender(event)
+        )

@@ -46,6 +46,7 @@ from . import (
     lottery,
     bindrequest,
     recalloffset,
+    recallsess,
 )
 
 
