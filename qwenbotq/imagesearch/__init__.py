@@ -193,7 +193,10 @@ async def _send_search_results(
         if thumb:
             message += MessageSegment.image(thumb)
         message += f"\n{g.title}"
-        message += f"\n{g.type} ⭐{g.rate} {g.published:%Y-%m-%d}"
+        info = f"\n{g.type} ⭐{g.rate} {g.published:%Y-%m-%d}"
+        if g.filecount:
+            info += f" | {g.filecount}页"
+        message += info
         message += f'\n{" ".join(g.tags)}'
         message += f"\n{g.url}"
         data = await matcher.send(message, at_sender=at_sender(event))
