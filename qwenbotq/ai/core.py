@@ -8,7 +8,7 @@ from typing import Any
 
 from openai import AsyncOpenAI, AsyncStream
 from openai.types.chat import ChatCompletionChunk
-from httpx import AsyncClient
+from httpx2 import AsyncClient
 
 from .. import config
 from .calls import get_tool_prompts, calling_vacumm, process_calls
