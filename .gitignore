@@ -8,3 +8,4 @@ downloads/
 tests/
 .env.prod
 config.yml
+.trae/
