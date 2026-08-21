@@ -292,18 +292,27 @@ DelRecallsMatcher = on_command(
 
 @DelRecallsMatcher.handle()
 async def del_recalls(event: PrivateMessageEvent) -> None:
-    "删除所有已撤回图片，并将已读偏移重置为 0"
+    "删除所有已撤回图片，并将已读偏移重置为 0；仅当已读全部文件时允许"
 
-    deleted = 0
-    for f in os.listdir(RECALLED_DIR):
-        p = os.path.join(RECALLED_DIR, f)
-        if isfile(p):
-            os.remove(p)
-            deleted += 1
+    files = [
+        f
+        for f in os.listdir(RECALLED_DIR)
+        if isfile(os.path.join(RECALLED_DIR, f))
+    ]
+    offset = await get_recall_offset(str(event.user_id))
+
+    if offset < len(files):
+        await DelRecallsMatcher.finish(
+            f"\n尚未读完全部撤回图片（已读偏移 {offset}/{len(files)}），拒绝删除，请先使用 !getrecalls 或 !getrecallszip 读完",
+            at_sender=at_sender(event),
+        )
+
+    for f in files:
+        os.remove(os.path.join(RECALLED_DIR, f))
 
     await set_recall_offset(str(event.user_id), 0)
     await DelRecallsMatcher.finish(
-        f"\n已删除 {deleted} 张撤回图片，已读偏移已重置为 0",
+        f"\n已删除 {len(files)} 张撤回图片，已读偏移已重置为 0",
         at_sender=at_sender(event),
     )
 
