@@ -50,6 +50,10 @@ Use `qwenbotq/config_model/` for configuration schema changes and `config.exampl
 
 The bot relies on external services and protocol behavior: MongoDB for persistence, OneBot v11 for messaging, and an HTTP file server whose configured `remote_host`/port must be reachable by the OneBot side. Avoid changing these connection defaults or startup sequencing without checking the deployment documentation.
 
+## Documentation maintenance
+
+`AGENTS.md` and `README.md` are living documents, both at the repository root and under `EHentaiX/`. Update them automatically, in the same change that makes the underlying code behave differently — do not wait to be asked. Whenever you modify anything those files describe (project layout, plugins and commands, configuration schema, dependencies, deployment steps, architecture, or the `ehentaix` API), update the corresponding `AGENTS.md` and `README.md` to match. If a change makes an existing statement inaccurate, correct it in the same change. Keep `README.md` user-facing (deployment, features, usage) and `AGENTS.md` agent-facing (layout, commands, conventions, edit boundaries). The `EHentaiX/README.md` is also the package readme referenced by `pyproject.toml`, so it must stay accurate for consumers of the standalone library.
+
 ## Conventions and safety
 
 Match the existing Python style: standard-library imports, third-party imports, then local imports; async APIs for network/bot/database work; `logger` for runtime diagnostics rather than ad-hoc prints. Preserve the existing MIT copyright header in root project Python files. Keep secrets, cookies, tokens, and real deployment config out of tracked files; use `config.example.yml` placeholders and local `config.yml`/`cookies.json` only.
