@@ -53,7 +53,7 @@ from ..help import Help
 Help.append_help("""
 【AI 助手】
 @我 <消息> — 与 AI 对话
-设置系统提示词 <名称> — 切换本会话智能体（群聊仅群管/群主，unsafe 仅私聊可用）
+使用智能体 <名称> — 切换本会话智能体（群聊仅群管/群主，unsafe 仅私聊可用）
 更改模型 [模型ID] — 切换 AI 模型
 会话信息 — 查看当前会话状态
 添加智能体 <名称> <提示词> [选项] — 添加智能体（--unsafe 标记仅私聊可用）
@@ -295,8 +295,8 @@ async def llm(
         await LLMMatcher.finish(reply_segment(reply_id) + f"上游异常：{e}")
 
 
-# 设置系统提示词匹配器
-prompt_cmd = Alconna("设置系统提示词", Args["prompt_name?", str])
+# 使用智能体匹配器
+prompt_cmd = Alconna("使用智能体", Args["prompt_name?", str])
 PromptMatcher = on_alconna(prompt_cmd, block=True)
 
 
@@ -305,11 +305,11 @@ async def set_prompt(
     prompt_name: Match[str],
     event: MessageEvent,
 ) -> NoReturn:
-    "设置系统提示词"
+    "使用智能体"
 
     if not prompt_name.available:
         await PromptMatcher.finish(
-            "\n用法：设置系统提示词 <智能体名称>\n"
+            "\n用法：使用智能体 <智能体名称>\n"
             "可用值：DEFAULT, UNSAFE 或已创建的智能体名称",
             at_sender=at_sender(event),
         )
@@ -420,8 +420,10 @@ async def session_info(
 
     session_id = get_session_id(event)
     vip = await get_vip(session_id)
+    agent = await get_session_agent(session_id)
     await SessionMatcher.finish(
         f"\n会话 ID：{session_id}\n"
+        f"当前智能体：{agent}\n"
         f"VIP 到期：{vip[1].strftime('%Y-%m-%d') if vip[1] and vip[1] > date.today() else '未开通'}",
         at_sender=at_sender(event),
     )
