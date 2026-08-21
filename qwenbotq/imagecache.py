@@ -6,7 +6,6 @@
 "图片缓存功能"
 
 # standard imports
-import base64
 import os
 import time
 import zipfile
@@ -94,12 +93,22 @@ async def cache_images(event: MessageEvent) -> None:
         path = os.path.join(CACHE_DIR, f"{event.message_id}_{uuid4().hex}.jpg")
         try:
             async with httpx.AsyncClient(timeout=30) as client:
-                content = (await client.get(url)).content
+                resp = await client.get(url)
+                resp.raise_for_status()
+                content = resp.content
+            if not content:
+                raise ValueError("下载内容为空")
             with open(path, "wb") as f:
                 f.write(content)
             logger.debug(f"已缓存图片 {path}（消息 {event.message_id}）")
         except Exception as e:
             logger.warning(f"图片缓存失败（消息 {event.message_id}）：{e}")
+            # 清理可能已写入的异常文件（0 字节或半成品），避免后续误当作有效图片
+            if isfile(path):
+                try:
+                    os.remove(path)
+                except OSError as ce:
+                    logger.warning(f"清理异常缓存文件失败（{path}）：{ce}")
 
 
 # 撤回事件匹配器
@@ -203,29 +212,39 @@ async def get_recalls(event: PrivateMessageEvent) -> None:
             at_sender=at_sender(event),
         )
 
-    # 内联 base64 图片，无需服务器，跨机器亦可；逐张发送以避开单条消息体积/数量限制
+    # 直接传 bytes，适配器内部编码为 base64 内联发送；无需服务器，跨机器亦可；逐张发送以避开单条消息体积/数量限制
     sent = 0
+    skipped = 0
     for f in new_files:
-        with open(os.path.join(RECALLED_DIR, f), "rb") as fh:
-            data = base64.b64encode(fh.read()).decode()
+        path = os.path.join(RECALLED_DIR, f)
+        # 跳过 0 字节等异常文件，但仍计入偏移推进，避免下次重复处理
+        if os.path.getsize(path) == 0:
+            logger.warning(f"撤回图片为 0 字节，跳过：{f}")
+            skipped += 1
+            continue
         try:
+            with open(path, "rb") as fh:
+                data = fh.read()
             await GetRecallsMatcher.send(
-                MessageSegment.image(f"base64://{data}"),
+                MessageSegment.image(data),
                 at_sender=at_sender(event),
             )
             sent += 1
         except Exception as e:
             logger.warning(f"发送撤回图片失败（{f}）：{e}")
-            # 中途失败：仅将偏移推进到已成功发送的位置，避免下次重复发送
-            await set_recall_offset(str(event.user_id), offset + sent)
+            # 中途失败：仅将偏移推进到已处理位置（已发送 + 已跳过），避免下次重复发送
+            await set_recall_offset(str(event.user_id), offset + sent + skipped)
             await GetRecallsMatcher.finish(
-                f"\n发送中断：已发送 {sent}/{len(new_files)} 张（{e}）",
+                f"\n发送中断：已发送 {sent}，跳过 {skipped}，"
+                f"剩余 {len(new_files) - sent - skipped}（{e}）",
                 at_sender=at_sender(event),
             )
 
     await set_recall_offset(str(event.user_id), len(files))
     await GetRecallsMatcher.finish(
-        f"\n已发送 {len(new_files)} 张撤回图片；新偏移 {len(files)}",
+        f"\n已发送 {sent} 张撤回图片"
+        + (f"（跳过 {skipped} 张异常）" if skipped else "")
+        + f"；新偏移 {len(files)}",
         at_sender=at_sender(event),
     )
 
@@ -263,10 +282,16 @@ async def get_recalls_zip(bot: Bot, event: PrivateMessageEvent) -> None:
 
     zip_name = f"recalls_{uuid4().hex}.zip"
     zip_path = os.path.join("downloads", zip_name)
+    skipped = 0
     try:
         with zipfile.ZipFile(zip_path, "w") as zf:
             for f in new_files:
-                zf.write(os.path.join(RECALLED_DIR, f), arcname=f)
+                path = os.path.join(RECALLED_DIR, f)
+                if os.path.getsize(path) == 0:
+                    logger.warning(f"撤回图片为 0 字节，跳过：{f}")
+                    skipped += 1
+                    continue
+                zf.write(path, arcname=f)
         await bot.upload_private_file(
             user_id=event.user_id,
             file=f"http://{host}:{port}/{zip_name}",
@@ -278,7 +303,9 @@ async def get_recalls_zip(bot: Bot, event: PrivateMessageEvent) -> None:
             os.remove(zip_path)
 
     await GetRecallsZipMatcher.finish(
-        f"\n已将 {len(new_files)} 张撤回图片打包上传；新偏移 {len(files)}",
+        f"\n已将 {len(new_files) - skipped} 张撤回图片打包上传"
+        + (f"（跳过 {skipped} 张异常）" if skipped else "")
+        + f"；新偏移 {len(files)}",
         at_sender=at_sender(event),
     )
 
