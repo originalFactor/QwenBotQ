@@ -18,10 +18,10 @@ from .help import Help
 
 Help.append_superuser_help("""
 【管理命令】
-!mute @用户 [原因] [-d 时长] — 禁言用户（默认1小时，0秒解除禁言）
-!kick @用户 [原因] [-b] — 踢出用户（-b 并封禁）
-!request approve|reject [原因] — 处理加群申请（需回复申请消息）
-!delete — 撤回消息（发送即撤回本身；若回复消息则一并撤回回复的消息）
+禁言 @用户 [原因] [-d 时长] — 禁言用户（默认1小时，0秒解除禁言）
+踢出 @用户 [原因] [-b] — 踢出用户（-b 并封禁）
+处理申请 approve|reject [原因] — 处理加群申请（需回复申请消息）
+撤回消息 — 撤回消息（发送即撤回本身；若回复消息则一并撤回回复的消息）
 """)
 
 get_user_args = Args["user?", At]["user_id?", int]
@@ -92,7 +92,7 @@ async def admin(event: GroupMessageEvent, bot: Bot, matcher: Matcher) -> AdminPo
     )
 
 
-mute_alconna = Alconna("!mute", get_user_args, reason_args, duration_option)
+mute_alconna = Alconna("禁言", get_user_args, reason_args, duration_option)
 mute_matcher = on_alconna(
     mute_alconna, permission=SUPERUSER | GROUP_ADMIN | GROUP_OWNER
 )
@@ -120,7 +120,7 @@ async def mute(
         )
 
 
-kick_alconna = Alconna("!kick", get_user_args, reason_args, Option("--ban|-b"))
+kick_alconna = Alconna("踢出", get_user_args, reason_args, Option("--ban|-b"))
 kick_matcher = on_alconna(
     kick_alconna, permission=SUPERUSER | GROUP_ADMIN | GROUP_OWNER
 )
@@ -155,11 +155,11 @@ async def group_request(
     await request_matcher.finish(
         f"f{{{event.flag}}}t{{{event.sub_type}}}\n"
         f"{nick}({event.user_id}) 加群申请\n"
-        "回复并发送 !request approve 接受申请，!request reject [reason] 拒绝申请"
+        "回复并发送 处理申请 approve 接受申请，处理申请 reject [reason] 拒绝申请"
     )
 
 
-process_alconna = Alconna("!request", Args["tp?", str], Args["reason?", str])
+process_alconna = Alconna("处理申请", Args["tp?", str], Args["reason?", str])
 process_matcher = on_alconna(
     process_alconna, permission=SUPERUSER | GROUP_ADMIN | GROUP_OWNER
 )
@@ -188,7 +188,7 @@ async def process_request(
     # check if tp is approve or reject
     if not tp.available or tp.result not in ("approve", "reject"):
         await process_matcher.finish(
-            "\n用法：!request approve|reject [原因]\n请先回复一条加群申请消息",
+            "\n用法：处理申请 approve|reject [原因]\n请先回复一条加群申请消息",
             at_sender=at_sender(event),
         )
     approve = tp.result == "approve"
@@ -201,7 +201,7 @@ async def process_request(
     )
 
 
-delete_matcher = on_command("!delete")
+delete_matcher = on_command("撤回消息")
 
 
 @delete_matcher.handle()

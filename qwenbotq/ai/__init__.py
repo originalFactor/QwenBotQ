@@ -57,10 +57,10 @@ Help.append_help("""
 更改模型 [模型ID] — 切换 AI 模型
 会话信息 — 查看当前会话状态
 添加智能体 <名称> <提示词> [选项] — 添加智能体（--unsafe 标记仅私聊可用）
-!clear — 清空当前会话上下文（群聊仅群管/群主，私聊仅超级管理员）
-!delagent <名称> — 删除智能体（创建者或超级管理员）
-!editagent <名称> [选项] — 修改智能体属性（创建者或超级管理员）
-!renewvip <会话ID> <天数> — 续期 AI VIP（管理员）
+清空上下文 — 清空当前会话上下文（群聊仅群管/群主，私聊仅超级管理员）
+删除智能体 <名称> — 删除智能体（创建者或超级管理员）
+修改智能体 <名称> [选项] — 修改智能体属性（创建者或超级管理员）
+!renewvip <会话ID> <天数> — 续期 AI VIP（仅超级管理员）
 """)
 
 __all__ = []
@@ -333,7 +333,7 @@ async def set_prompt(
 
 
 # 清空当前会话上下文
-ClearContextMatcher = on_command("!clear", block=True)
+ClearContextMatcher = on_command("清空上下文", block=True)
 
 
 @ClearContextMatcher.handle()
@@ -555,7 +555,7 @@ async def add_agent(
 
 
 # 删除智能体匹配器
-del_agent_cmd = Alconna("!delagent", Args["agent_name?", str])
+del_agent_cmd = Alconna("删除智能体", Args["agent_name?", str])
 DelAgentMatcher = on_alconna(del_agent_cmd, block=True)
 
 
@@ -569,7 +569,7 @@ async def del_agent(
 
     if not agent_name.available:
         await DelAgentMatcher.finish(
-            "\n用法：!delagent <名称>",
+            "\n用法：删除智能体 <名称>",
             at_sender=at_sender(event),
         )
 
@@ -596,7 +596,7 @@ async def del_agent(
 
 # 修改智能体匹配器
 edit_agent_cmd = Alconna(
-    "!editagent",
+    "修改智能体",
     Args["agent_name?", str],
     Option("--prompt", Args["prompt", MultiVar(str)], help_text="提示词"),
     Option("--temperature|-t", Args["temperature", float], help_text="温度参数"),
@@ -628,7 +628,7 @@ async def edit_agent(
 
     if not agent_name.available:
         await EditAgentMatcher.finish(
-            "\n用法：!editagent <名称> [选项]\n"
+            "\n用法：修改智能体 <名称> [选项]\n"
             "选项：\n"
             "  --prompt <提示词> —— 修改提示词\n"
             "  -t/--temperature <值> —— 温度参数\n"
