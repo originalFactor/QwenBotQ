@@ -1,10 +1,5 @@
 {
   "python-envs.defaultEnvManager": "ms-python.python:poetry",
   "python-envs.defaultPackageManager": "ms-python.python:poetry",
-  "python-envs.pythonProjects": [],
-  "python.analysis.typeCheckingMode": "basic",
   "python.analysis.diagnosticMode": "workspace",
-  "python.analysis.extraPaths": [
-    "EHentaiX"
-  ]
 }
