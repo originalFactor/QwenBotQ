@@ -115,7 +115,7 @@
 | `!listenrecalls <sessionId>` | 添加监听撤回图片的会话（群 `g{群号}` / 私聊 `u{QQ号}`）。 |
 | `!listlistening` | 查看当前监听会话。 |
 | `!dellistening <sessionId>` | 移除指定监听会话。 |
-| `!getrecalls` | 获取已读偏移之后的新撤回图片（多条一并内联发送）。 |
+| `!getrecalls` | 获取已读偏移之后的新撤回图片（逐张内联发送）。 |
 | `!getrecallszip` | 将已读偏移之后的新撤回图片打包为 zip 上传。 |
 | `!setrecalloffset <偏移>` | 手动指定已读偏移。 |
 | `!delrecalls` | 删除当前保存的所有已撤回图片并重置已读偏移为 0。 |

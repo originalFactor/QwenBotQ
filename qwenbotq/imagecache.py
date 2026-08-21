@@ -20,7 +20,6 @@ from nonebot.adapters.onebot.v11 import (
     Bot,
     FriendRecallNoticeEvent,
     GroupRecallNoticeEvent,
-    Message,
     MessageEvent,
     MessageSegment,
     PrivateMessageEvent,
@@ -48,7 +47,7 @@ Help.append_superuser_help("""
 !listenrecalls <sessionId> — 添加监听撤回图片的会话（群 g{群号} / 私聊 u{QQ号}）
 !listlistening — 查看当前监听会话
 !dellistening <sessionId> — 移除指定监听会话
-!getrecalls — 获取已读偏移之后的新撤回图片（多条一并发送）
+!getrecalls — 获取已读偏移之后的新撤回图片（逐张内联发送）
 !getrecallszip — 将已读偏移之后的新撤回图片打包为zip获取
 !setrecalloffset <偏移> — 手动指定已读偏移
 !delrecalls — 删除当前保存的所有已撤回图片并重置已读偏移
@@ -189,14 +188,10 @@ GetRecallsMatcher = on_command(
 
 @GetRecallsMatcher.handle()
 async def get_recalls(event: PrivateMessageEvent) -> None:
-    "获取已读偏移之后的新撤回图片；以多条图片一并发送"
+    "获取已读偏移之后的新撤回图片；逐张内联发送以避开单条消息体积/数量限制"
 
     files = sorted(
-        (
-            f
-            for f in os.listdir(RECALLED_DIR)
-            if isfile(os.path.join(RECALLED_DIR, f))
-        ),
+        (f for f in os.listdir(RECALLED_DIR) if isfile(os.path.join(RECALLED_DIR, f))),
         key=lambda f: os.path.getmtime(os.path.join(RECALLED_DIR, f)),
     )
     offset = await get_recall_offset(str(event.user_id))
@@ -208,14 +203,26 @@ async def get_recalls(event: PrivateMessageEvent) -> None:
             at_sender=at_sender(event),
         )
 
-    # 内联 base64 图片，无需服务器，跨机器亦可
-    msg = Message()
+    # 内联 base64 图片，无需服务器，跨机器亦可；逐张发送以避开单条消息体积/数量限制
+    sent = 0
     for f in new_files:
         with open(os.path.join(RECALLED_DIR, f), "rb") as fh:
             data = base64.b64encode(fh.read()).decode()
-        msg += MessageSegment.image(f"base64://{data}")
+        try:
+            await GetRecallsMatcher.send(
+                MessageSegment.image(f"base64://{data}"),
+                at_sender=at_sender(event),
+            )
+            sent += 1
+        except Exception as e:
+            logger.warning(f"发送撤回图片失败（{f}）：{e}")
+            # 中途失败：仅将偏移推进到已成功发送的位置，避免下次重复发送
+            await set_recall_offset(str(event.user_id), offset + sent)
+            await GetRecallsMatcher.finish(
+                f"\n发送中断：已发送 {sent}/{len(new_files)} 张（{e}）",
+                at_sender=at_sender(event),
+            )
 
-    await GetRecallsMatcher.send(msg, at_sender=at_sender(event))
     await set_recall_offset(str(event.user_id), len(files))
     await GetRecallsMatcher.finish(
         f"\n已发送 {len(new_files)} 张撤回图片；新偏移 {len(files)}",
@@ -238,11 +245,7 @@ async def get_recalls_zip(bot: Bot, event: PrivateMessageEvent) -> None:
     "获取已读偏移之后的新撤回图片；打包为 zip 上传"
 
     files = sorted(
-        (
-            f
-            for f in os.listdir(RECALLED_DIR)
-            if isfile(os.path.join(RECALLED_DIR, f))
-        ),
+        (f for f in os.listdir(RECALLED_DIR) if isfile(os.path.join(RECALLED_DIR, f))),
         key=lambda f: os.path.getmtime(os.path.join(RECALLED_DIR, f)),
     )
     offset = await get_recall_offset(str(event.user_id))
@@ -295,9 +298,7 @@ async def del_recalls(event: PrivateMessageEvent) -> None:
     "删除所有已撤回图片，并将已读偏移重置为 0；仅当已读全部文件时允许"
 
     files = [
-        f
-        for f in os.listdir(RECALLED_DIR)
-        if isfile(os.path.join(RECALLED_DIR, f))
+        f for f in os.listdir(RECALLED_DIR) if isfile(os.path.join(RECALLED_DIR, f))
     ]
     offset = await get_recall_offset(str(event.user_id))
 
