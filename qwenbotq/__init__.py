@@ -31,6 +31,7 @@ import_module(".usersystem", __package__)
 import_module(".imagesearch", __package__)
 import_module(".superuser", __package__)
 import_module(".imagecache", __package__)
+import_module(".lognotice", __package__)
 
 # optional features
 if config.ai:

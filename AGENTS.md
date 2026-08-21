@@ -9,6 +9,7 @@ QwenBotQ is a Python NoneBot2 QQ entertainment bot using the OneBot v11 adapter.
 - `qwenbotq/config_model/`: Pydantic models for `config.yml`.
 - `qwenbotq/imagesearch/`, `fileserver.py`, `imagecache.py`: image search/download, HTTP file serving, and recalled-image caching.
 - `binding.py`, `usersystem.py`, `lottery.py`, `bilinotice.py`, `superuser.py`: feature plugins; several are enabled only when their config section is populated.
+- `lognotice.py`: always-on loguru sink that forwards WARNING and above logs to every configured superuser's private chat. Registered via an `on_startup` hook that captures the running event loop and adds the sink with a self-name filter and a 5-second `(name, message)` dedup window to prevent recursion and flooding. Forwarding is scheduled with `asyncio.run_coroutine_threadsafe` so it works from any thread; sending failures are swallowed silently to avoid recursive logging.
 - `ehentaix/`: local editable `ehentaix` library for E-Hentai searching/downloading, with its own `pyproject.toml` and live integration scripts.
 - `downloads/`: runtime cache/download data; do not treat it as source code.
 
