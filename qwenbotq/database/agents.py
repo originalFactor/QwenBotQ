@@ -20,3 +20,4 @@ class Agent(Document):
     max_tokens: int | None = None
     thinking: bool = False
     unsafe: bool = False
+    owner: str = ""

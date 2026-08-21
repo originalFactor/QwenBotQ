@@ -58,8 +58,8 @@ Help.append_help("""
 会话信息 — 查看当前会话状态
 添加智能体 <名称> <提示词> [选项] — 添加智能体（--unsafe 标记仅私聊可用）
 !clear — 清空当前会话上下文（群聊仅群管/群主，私聊仅超级管理员）
-!delagent <名称> — 删除智能体（管理员）
-!editagent <名称> [选项] — 修改智能体属性（管理员）
+!delagent <名称> — 删除智能体（创建者或超级管理员）
+!editagent <名称> [选项] — 修改智能体属性（创建者或超级管理员）
 !renewvip <会话ID> <天数> — 续期 AI VIP（管理员）
 """)
 
@@ -503,6 +503,7 @@ AddAgentMatcher = on_alconna(add_agent_cmd, block=True)
 
 @AddAgentMatcher.handle()
 async def add_agent(
+    user: Annotated[User, require()],
     agent_name: Match[str],
     prompt: Match[tuple[str, ...]],
     arp: Arparma[Any],
@@ -533,6 +534,7 @@ async def add_agent(
         await AddAgentMatcher.finish("\n该智能体已存在。", at_sender=at_sender(event))
 
     agent = Agent(id=agent_name.result, prompt=" ".join(prompt.result))
+    agent.owner = user.id
     if (t := arp.query[float]("temperature.temperature")) is not None:
         agent.temperature = t
     if (f := arp.query[float]("frequency_penalty.frequency_penalty")) is not None:
@@ -559,7 +561,7 @@ DelAgentMatcher = on_alconna(del_agent_cmd, block=True)
 
 @DelAgentMatcher.handle()
 async def del_agent(
-    user: Annotated[User, require(superuser=True)],
+    user: Annotated[User, require()],
     agent_name: Match[str],
     event: MessageEvent,
 ) -> NoReturn:
@@ -579,6 +581,11 @@ async def del_agent(
     agent = await Agent.get(agent_name.result)
     if not agent:
         await DelAgentMatcher.finish("\n该智能体不存在。", at_sender=at_sender(event))
+
+    if not (user.id in config.supermgr_ids or (agent.owner and agent.owner == user.id)):
+        await DelAgentMatcher.finish(
+            "\n您没有权限管理该智能体。", at_sender=at_sender(event)
+        )
 
     await agent.delete()
     await DelAgentMatcher.finish(
@@ -612,7 +619,7 @@ EditAgentMatcher = on_alconna(edit_agent_cmd, block=True)
 
 @EditAgentMatcher.handle()
 async def edit_agent(
-    user: Annotated[User, require(superuser=True)],
+    user: Annotated[User, require()],
     agent_name: Match[str],
     arp: Arparma[Any],
     event: MessageEvent,
@@ -641,6 +648,11 @@ async def edit_agent(
     agent = await Agent.get(agent_name.result)
     if not agent:
         await EditAgentMatcher.finish("\n该智能体不存在。", at_sender=at_sender(event))
+
+    if not (user.id in config.supermgr_ids or (agent.owner and agent.owner == user.id)):
+        await EditAgentMatcher.finish(
+            "\n您没有权限管理该智能体。", at_sender=at_sender(event)
+        )
 
     updates: dict[str, str | float | int | bool] = {}
     if (pr := arp.query[tuple[str, ...]]("prompt.prompt")) is not None:
