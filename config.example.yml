@@ -21,6 +21,7 @@ ai:
       max_tokens: null # 最大输出 token 数（null为不限制）
       detail: "" # 模型描述
       dimensions: null # 向量维度（仅 embedding 模型需要）
+      support_images: false # 是否支持图片输入（可从 models.dev 自动补全）
 
   # 默认提示词配置
   default_prompts:

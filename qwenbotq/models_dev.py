@@ -91,6 +91,16 @@ def merge_model_metadata(
         updates["max_tokens"] = int(max_output)
     if not model.detail and md.get("description"):
         updates["detail"] = md.get("description")
+
+    # 图片支持由 modalities.input 决定（默认 false 视为未填写，仅补全为 true）
+    modalities = md.get("modalities")
+    inputs = (
+        modalities.get("input")
+        if isinstance(modalities, dict) and isinstance(modalities.get("input"), list)
+        else None
+    )
+    if not model.support_images and inputs and "image" in inputs:
+        updates["support_images"] = True
     return model.model_copy(update=updates) if updates else None
 
 

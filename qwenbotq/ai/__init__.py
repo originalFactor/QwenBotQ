@@ -185,6 +185,16 @@ async def llm(
         )
 
     model = models[user.model]
+
+    # 模型不支持图片时：群聊（带@）拒绝带图请求；私聊忽略无文本的纯图片请求、拒绝带文本的图片请求
+    if event.message["image"] and not model.support_images:
+        if event.message_type == "private" and not prompt:
+            await LLMMatcher.finish()
+        await LLMMatcher.finish(
+            "\n当前模型不支持图片输入，请更换支持图片的模型或仅发送文本。",
+            at_sender=at_sender(event),
+        )
+
     predicted_tokens = tokenize(messages)
     logger.debug(f"History construct done!, cost: {(perf_counter() - t0) * 1000:.2f}ms")
 

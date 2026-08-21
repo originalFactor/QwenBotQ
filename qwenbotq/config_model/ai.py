@@ -35,6 +35,7 @@ class LLMModelConfig(BaseModel):
     max_tokens: int | None = None
     detail: str = ""
     dimensions: int | None = None
+    support_images: bool = False  # 是否支持图片输入（可从 models.dev 自动补全）
 
 
 class BoChaAPIConfig(BaseModel):
