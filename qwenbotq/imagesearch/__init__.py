@@ -7,7 +7,6 @@
 from os import mkdir, remove
 from os.path import isdir, isfile
 from shutil import rmtree
-from typing import Annotated
 from uuid import uuid4
 import re
 
@@ -36,7 +35,12 @@ from py7zr import SevenZipFile
 from httpx import AsyncClient
 
 from .. import config
-from ..bot_utils import get_flow_replies, Reply, reply_segment, at_sender
+from ..bot_utils import reply_segment, at_sender, get_session_id
+from ..database.searchstate import (
+    get_search_state,
+    set_search_state,
+    clear_search_state,
+)
 from ..help import Help
 
 Help.append_help("""
@@ -44,7 +48,7 @@ Help.append_help("""
 找本子 [图片] — 以图搜本
 下本子 <URL> — 下载本子
 搜本子 <关键词> [-l 数量] [-e] — 搜索本子
-下一页 — 查看搜索结果下一页（需回复搜索结果）
+下一页 — 查看搜索结果下一页
 """)
 
 if not isdir("downloads"):
@@ -176,7 +180,7 @@ async def _send_search_results(
     msgId: int,
     next: int | None = None,
 ):
-    """发送搜索结果并记录上下文，返回最后一条消息的reply_id"""
+    """发送搜索结果，并按会话保存状态供「下一页」使用"""
     async with AsyncClient(cookies=cookies) as c:
         ehentai = EHentaiClient(client=c)
         res = await ehentai.search(query=query, exhentai=exh, next=next)
@@ -185,6 +189,7 @@ async def _send_search_results(
         thumbs = [await g.thumbnail() for g in galleries]
 
     if not galleries:
+        await clear_search_state(get_session_id(event))
         await matcher.finish("\n没有找到结果", at_sender=at_sender(event))
 
     reply_id = msgId
@@ -201,6 +206,10 @@ async def _send_search_results(
         message += f"\n{g.url}"
         data = await matcher.send(message, at_sender=at_sender(event))
         reply_id: int = data["message_id"]
+
+    await set_search_state(
+        get_session_id(event), query=query, limit=limit, exh=exh, next=res.last
+    )
 
 
 search_alconna = Alconna(
@@ -238,39 +247,21 @@ NextPageMatcher = on_command("下一页", block=True)
 
 
 @NextPageMatcher.handle()
-async def next_page(
-    replies: Annotated[list[Reply] | None, get_flow_replies],
-    matcher: Matcher,
-    event: MessageEvent,
-):
-    if not replies:
+async def next_page(matcher: Matcher, event: MessageEvent):
+    state = await get_search_state(get_session_id(event))
+    if not state or not state.query:
         await NextPageMatcher.finish(
-            "\n用法：[reply] 下一页", at_sender=at_sender(event)
+            "\n没有搜索记录，请先使用 搜本子 <关键词>", at_sender=at_sender(event)
         )
-
-    arp = search_alconna.parse(replies[0].message.extract_plain_text())
-    query = arp.query[str]("query")
-    last_msg = replies[-1].message.extract_plain_text()
-    match = re.search(r"/g/(\d+)/[a-z0-9]+/", last_msg)
-    if not match:
-        await NextPageMatcher.finish(
-            "\n没有找到上一页的结果", at_sender=at_sender(event)
-        )
-
-    if not query:
-        await NextPageMatcher.finish("\n错误的引用", at_sender=at_sender(event))
-
-    limit = arp.query[int]("limit.limit") or 5
-    use_exh = arp.find("exh")
 
     await _send_search_results(
         matcher=matcher,
         event=event,
-        query=query,
-        limit=limit,
-        next=int(match.group(1)),
+        query=state.query,
+        limit=state.limit,
+        next=state.next,
         msgId=event.message_id,
-        exh=use_exh,
+        exh=state.exh,
     )
 
     await NextPageMatcher.finish()

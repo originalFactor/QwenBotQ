@@ -27,6 +27,12 @@ from .sessioncontext import (
     replace_session_messages,
     clear_session_context,
 )
+from .searchstate import (
+    SearchState,
+    get_search_state,
+    set_search_state,
+    clear_search_state,
+)
 from . import core
 
 __all__ = [
@@ -49,5 +55,9 @@ __all__ = [
     "get_session_context",
     "replace_session_messages",
     "clear_session_context",
+    "SearchState",
+    "get_search_state",
+    "set_search_state",
+    "clear_search_state",
     "get_biggest_coins",
 ]
