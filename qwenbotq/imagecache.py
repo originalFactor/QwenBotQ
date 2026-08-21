@@ -15,7 +15,6 @@ from uuid import uuid4
 
 # external imports
 import httpx
-from bson import ObjectId
 from nonebot import get_driver, on_command, on_message, on_notice
 from nonebot.adapters.onebot.v11 import (
     Bot,
@@ -93,7 +92,7 @@ async def cache_images(event: MessageEvent) -> None:
             continue
 
         # 文件名含消息ID便于撤回时匹配；扩展名固定为 jpg
-        path = f"{CACHE_DIR}/{event.message_id}_{uuid4().hex}.jpg"
+        path = os.path.join(CACHE_DIR, f"{event.message_id}_{uuid4().hex}.jpg")
         try:
             async with httpx.AsyncClient(timeout=30) as client:
                 content = (await client.get(url)).content
@@ -131,8 +130,8 @@ async def on_recall(event) -> None:
         old = os.path.join(CACHE_DIR, f)
         if not isfile(old):
             continue
-        # 重命名为 ObjectId，避免文件名带 message_id 导致的排序顺序问题；其字典序即时间序（进程内单调）
-        new = os.path.join(RECALLED_DIR, f"{str(ObjectId())}.jpg")
+        # 不重命名，原文件名直接移动到独立目录；读取时按修改时间排序
+        new = os.path.join(RECALLED_DIR, f)
         try:
             os.rename(old, new)
             moved.append(new)
@@ -193,7 +192,12 @@ async def get_recalls(event: PrivateMessageEvent) -> None:
     "获取已读偏移之后的新撤回图片；以多条图片一并发送"
 
     files = sorted(
-        f for f in os.listdir(RECALLED_DIR) if isfile(os.path.join(RECALLED_DIR, f))
+        (
+            f
+            for f in os.listdir(RECALLED_DIR)
+            if isfile(os.path.join(RECALLED_DIR, f))
+        ),
+        key=lambda f: os.path.getmtime(os.path.join(RECALLED_DIR, f)),
     )
     offset = await get_recall_offset(str(event.user_id))
     new_files = files[offset:]
@@ -234,7 +238,12 @@ async def get_recalls_zip(bot: Bot, event: PrivateMessageEvent) -> None:
     "获取已读偏移之后的新撤回图片；打包为 zip 上传"
 
     files = sorted(
-        f for f in os.listdir(RECALLED_DIR) if isfile(os.path.join(RECALLED_DIR, f))
+        (
+            f
+            for f in os.listdir(RECALLED_DIR)
+            if isfile(os.path.join(RECALLED_DIR, f))
+        ),
+        key=lambda f: os.path.getmtime(os.path.join(RECALLED_DIR, f)),
     )
     offset = await get_recall_offset(str(event.user_id))
     new_files = files[offset:]
