@@ -57,7 +57,7 @@ Help.append_help("""
 更改模型 [模型ID] — 切换 AI 模型
 会话信息 — 查看当前会话状态
 添加智能体 <名称> <提示词> [选项] — 添加智能体（--unsafe 标记仅私聊可用）
-清空上下文 — 清空当前会话上下文（群聊仅群管/群主，私聊仅超级管理员）
+清空上下文 — 清空当前会话上下文（群聊仅群管/群主，私聊任意用户可自行清空）
 删除智能体 <名称> — 删除智能体（创建者或超级管理员）
 修改智能体 <名称> [选项] — 修改智能体属性（创建者或超级管理员）
 !renewvip <会话ID> <天数> — 续期 AI VIP（仅超级管理员）
@@ -340,7 +340,7 @@ ClearContextMatcher = on_command("清空上下文", block=True)
 async def clear_context(
     event: MessageEvent,
 ) -> NoReturn:
-    "清空当前会话上下文（群聊仅群管/群主，私聊仅超级管理员）"
+    "清空当前会话上下文（群聊仅群管/群主，私聊任意用户可自行清空）"
 
     session_id = get_session_id(event)
     is_superuser = event.get_user_id() in config.supermgr_ids
@@ -350,10 +350,6 @@ async def clear_context(
                 "\n仅群管/群主（或超级管理员）可以清空本群上下文。",
                 at_sender=at_sender(event),
             )
-    elif not is_superuser:
-        await ClearContextMatcher.finish(
-            "\n仅超级管理员可以清空私聊会话的上下文。", at_sender=at_sender(event)
-        )
 
     await clear_session_context(session_id)
     await ClearContextMatcher.finish(
