@@ -92,7 +92,7 @@ async def cache_images(event: MessageEvent) -> None:
         # 文件名含消息ID便于撤回时匹配；扩展名固定为 jpg
         path = os.path.join(CACHE_DIR, f"{event.message_id}_{uuid4().hex}.jpg")
         try:
-            async with httpx.AsyncClient(timeout=30) as client:
+            async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
                 resp = await client.get(url)
                 resp.raise_for_status()
                 content = resp.content
