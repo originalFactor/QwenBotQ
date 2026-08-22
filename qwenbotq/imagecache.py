@@ -85,6 +85,9 @@ async def cache_images(event: MessageEvent) -> None:
 
     for seg in images:
         data = seg.data
+        # sub_type == 1 或含 emoji_id 为表情包，不缓存；参数不存在视为正常图片
+        if data.get("sub_type") == 1 or "emoji_id" in data:  # type: ignore[union-attr]
+            continue
         url = data.get("url")  # type: ignore[union-attr]
         if not url:
             continue
