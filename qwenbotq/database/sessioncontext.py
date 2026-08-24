@@ -28,16 +28,6 @@ async def get_session_context(session_id: str) -> SessionContext:
     return rec
 
 
-async def replace_session_messages(
-    session_id: str, messages: list[dict], total_tokens: int
-) -> None:
-    "覆盖指定会话的上下文消息与累计 token 数"
-    rec = await get_session_context(session_id)
-    rec.messages = messages
-    rec.total_tokens = total_tokens
-    await rec.save()
-
-
 async def clear_session_context(session_id: str) -> None:
     "清空指定会话的上下文"
     rec = await SessionContext.get(session_id)

@@ -24,7 +24,6 @@ from .sessionagent import (
 from .sessioncontext import (
     SessionContext,
     get_session_context,
-    replace_session_messages,
     clear_session_context,
 )
 from .searchstate import (
@@ -53,7 +52,6 @@ __all__ = [
     "set_session_agent",
     "SessionContext",
     "get_session_context",
-    "replace_session_messages",
     "clear_session_context",
     "SearchState",
     "get_search_state",

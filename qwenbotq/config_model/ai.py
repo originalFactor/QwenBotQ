@@ -34,7 +34,6 @@ class LLMModelConfig(BaseModel):
     context_length: int | None = None
     max_tokens: int | None = None
     detail: str = ""
-    dimensions: int | None = None
     support_images: bool = False  # 是否支持图片输入（可从 models.dev 自动补全）
 
 
@@ -60,31 +59,6 @@ class DefaultPromptsConfig(BaseModel):
     unsafe: AgentLike | None = None
 
 
-class MemoryQdrantConfig(BaseModel):
-    "Qdrant向量数据库配置"
-
-    collection_name: str = "aioBotMemories"
-    host: str = "localhost"
-    port: int = 6333
-
-
-class LocalMemoryConfig(BaseModel):
-    "记忆配置"
-
-    llm: LLMModelConfig
-    reranker: LLMModelConfig | None = None
-    embedder: LLMModelConfig
-    qdrant: MemoryQdrantConfig = MemoryQdrantConfig()
-    threshold: float = 0.8
-
-
-class CloudMemoryConfig(BaseModel):
-    "云记忆配置"
-
-    api_key: str
-    threshold: float = 0.8
-
-
 class ModelsDevConfig(BaseModel):
     "models.dev 自动补全配置"
 
@@ -101,6 +75,5 @@ class LLMConfig(BaseModel):
     models: dict[str, LLMModelConfig]
     default_prompts: DefaultPromptsConfig = DefaultPromptsConfig()
     tools: LLMToolsConfig = LLMToolsConfig()
-    memory: LocalMemoryConfig | CloudMemoryConfig | None = None
     summarize_threshold: float = 0.8  # 上下文累计 token 达到该比例阈值时自动总结
     models_dev: ModelsDevConfig = ModelsDevConfig()  # models.dev 自动补全

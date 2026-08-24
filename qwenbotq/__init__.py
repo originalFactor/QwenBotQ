@@ -36,8 +36,6 @@ import_module(".lognotice", __package__)
 # optional features
 if config.ai:
     import_module(".ai", __package__)
-    if config.ai.memory:
-        import_module(".ai.memory", __package__)
 if config.focus:
     import_module(".bilinotice", __package__)
 if config.lottery:

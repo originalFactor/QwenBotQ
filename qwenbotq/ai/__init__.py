@@ -7,6 +7,7 @@
 "AI助手模块"
 
 # Standard imports
+from asyncio import gather
 from json import dumps
 from time import perf_counter
 from typing import Annotated, Any, NoReturn
@@ -34,7 +35,6 @@ from ..database import (
     get_session_agent,
     set_session_agent,
     get_session_context,
-    replace_session_messages,
     clear_session_context,
 )
 from ..bot_utils import (
@@ -44,7 +44,7 @@ from ..bot_utils import (
     at_sender,
     is_group_admin_or_owner,
 )
-from .tools import get_sysprompt, tokenize, content_to_text, blocked_by_unsafe
+from .tools import get_sysprompt, tokenize, blocked_by_unsafe
 from .core import chat
 from .summarize import summarize_context
 from ..models_dev import autofill_models
@@ -87,8 +87,8 @@ def has_text(event: MessageEvent) -> bool:
 FALLBACK_CONTEXT_LENGTH = 8192
 
 
-def build_user_content(event: MessageEvent, prompt: str) -> tuple[Any, str]:
-    "组装本轮 user 内容：回复引用 + 文本 + 图片；返回 (OpenAI content, 文本版用于记忆)"
+def build_user_content(event: MessageEvent, prompt: str) -> Any:
+    "组装本轮 user 内容：回复引用 + 文本 + 图片；返回 OpenAI content"
     parts = []
     if event.reply and event.reply.message:
         reply_text = event.reply.message.extract_plain_text().strip()
@@ -112,8 +112,8 @@ def build_user_content(event: MessageEvent, prompt: str) -> tuple[Any, str]:
             content.append({"type": "text", "text": text})
         for url in images:
             content.append({"type": "image_url", "image_url": {"url": url}})
-        return content, text
-    return text, text
+        return content
+    return text
 
 
 # 大模型回复匹配器
@@ -130,11 +130,18 @@ async def llm(
     assert config.ai
 
     session_id = get_session_id(event)
+    start_time = perf_counter()
+
+    # VIP 检查带 60s 进程内缓存，通常命中缓存无需读库
     has_vip, _ = await get_vip(session_id)
     if not has_vip:
         await LLMMatcher.finish("\n请先开通 AI VIP !", at_sender=at_sender(event))
 
-    start_time = perf_counter()
+    # 并行加载会话上下文与智能体，合并串行 MongoDB 往返
+    ctx, agent_name = await gather(
+        get_session_context(session_id),
+        get_session_agent(session_id),
+    )
 
     logger.debug(f"Successfully entered llm function with session_id {session_id}")
 
@@ -162,12 +169,10 @@ async def llm(
 
     # 读取持久化上下文
     t0 = perf_counter()
-    ctx = await get_session_context(session_id)
     messages = ctx.messages
-    user_content, user_text = build_user_content(event, prompt)
-    messages.append({"role": "user", "content": user_content})
+    messages.append({"role": "user", "content": build_user_content(event, prompt)})
 
-    agent = await get_sysprompt(await get_session_agent(session_id))
+    agent = await get_sysprompt(agent_name)
 
     if not agent:
         await set_session_agent(session_id, "DEFAULT")
@@ -209,14 +214,6 @@ async def llm(
         f"Context length check done!, cost: {(perf_counter() - t0) * 1000:.2f}ms"
     )
 
-    # 搜索记忆
-    if config.ai.memory:
-        t0 = perf_counter()
-        from .memory import get_memprompt
-
-        agent.prompt += "\n" + await get_memprompt(session_id, user_text)
-        logger.debug(f"Memory search done!, cost: {(perf_counter() - t0) * 1000:.2f}ms")
-
     # 流式回复track
     reply_id = event.message_id
     msgs = []
@@ -246,26 +243,16 @@ async def llm(
             f"Reply done!, chat cost: {(perf_counter() - chat_start_time) * 1000:.2f}ms"
         )
 
-        # 追加上下文并持久化（msgs 含插入到 0 的 system，存储时去掉）
+        # 追加上下文并持久化（msgs 含插入到 0 的 system，存储时去掉；复用已加载的 ctx 避免二次读取）
         persist = (
             msgs[1:] if msgs else [m for m in messages if m.get("role") != "system"]
         )
         total_tokens = usage.get("total_tokens")
         if total_tokens is None:
             total_tokens = tokenize(persist)
-        await replace_session_messages(session_id, persist, int(total_tokens))
-
-        # 写入记忆（文本序列化）
-        if config.ai.memory:
-            t0 = perf_counter()
-            from .memory import add_memory
-
-            text_msgs = [
-                {"role": m.get("role"), "content": content_to_text(m.get("content"))}
-                for m in persist
-            ]
-            await add_memory(session_id, text_msgs)
-            logger.debug(f"Memory done!, cost: {(perf_counter() - t0) * 1000:.2f}ms")
+        ctx.messages = persist
+        ctx.total_tokens = int(total_tokens)
+        await ctx.save()
 
         # 达阈值自动总结并覆盖上下文
         if (usage_total := usage.get("total_tokens")) is not None:
@@ -276,9 +263,9 @@ async def llm(
                 summarized = [
                     {"role": "user", "content": "（历史对话已总结）\n" + summary}
                 ]
-                await replace_session_messages(
-                    session_id, summarized, tokenize(summarized)
-                )
+                ctx.messages = summarized
+                ctx.total_tokens = tokenize(summarized)
+                await ctx.save()
                 await LLMMatcher.send(
                     "\n上下文已接近上限，已自动总结历史对话以继续。",
                     at_sender=at_sender(event),
@@ -426,64 +413,6 @@ async def session_info(
         f"当前智能体：{agent}\n"
         f"VIP 到期：{vip[1].strftime('%Y-%m-%d') if vip[1] and vip[1] > date.today() else '未开通'}",
         at_sender=at_sender(event),
-    )
-
-
-ClearMemoryMatcher = on_command("清除记忆", block=True)
-
-
-@ClearMemoryMatcher.handle()
-async def clear_memory(
-    event: MessageEvent,
-) -> NoReturn:
-    "清除记忆"
-
-    if not config.ai or not config.ai.memory:
-        await ClearMemoryMatcher.finish(
-            "\n记忆系统未启用。", at_sender=at_sender(event)
-        )
-
-    session_id = get_session_id(event)
-
-    if session_id[0] == "g" and event.get_user_id() not in config.supermgr_ids:
-        await ClearMemoryMatcher.finish(
-            "\n只有超级管理员可以清除群聊会话的记忆。", at_sender=at_sender(event)
-        )
-
-    from .memory import clear_memory
-
-    await clear_memory(session_id)
-    await ClearMemoryMatcher.finish(
-        "\n已尝试清除本会话的记忆", at_sender=at_sender(event)
-    )
-
-
-GetMemoryMatcher = on_command("查看记忆", block=True)
-
-
-@GetMemoryMatcher.handle()
-async def get_memory(
-    event: MessageEvent,
-) -> NoReturn:
-    "查看记忆"
-
-    if not config.ai or not config.ai.memory:
-        await GetMemoryMatcher.finish("\n记忆系统未启用。", at_sender=at_sender(event))
-
-    session_id = get_session_id(event)
-
-    if session_id[0] == "g" and event.get_user_id() not in config.supermgr_ids:
-        await GetMemoryMatcher.finish(
-            "\n只有超级管理员可以查看群聊会话的记忆。", at_sender=at_sender(event)
-        )
-
-    from .memory import getall_memory
-
-    memlist = await getall_memory(session_id)
-    memstr = "\n".join(memlist)
-
-    await GetMemoryMatcher.finish(
-        f"\n当前所有记忆：\n{memstr}", at_sender=at_sender(event)
     )
 
 

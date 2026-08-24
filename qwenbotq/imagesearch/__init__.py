@@ -8,6 +8,7 @@ from os import mkdir, remove
 from os.path import isdir, isfile
 from shutil import rmtree
 from uuid import uuid4
+import asyncio
 import re
 
 from nonebot import on_command
@@ -64,6 +65,12 @@ def _safe_filename(name: str, max_len: int = 80) -> str:
     cleaned = re.sub(r'[\\/:*?"<>|\x00-\x1f\x7f]', "_", name)
     cleaned = cleaned.strip(" .")[:max_len].rstrip(" .")
     return cleaned or uuid4().hex
+
+
+def _pack_sevenz(archive_path: str, src_dir: str, password: str) -> None:
+    "同步 7z 打包（在事件循环外执行，避免阻塞所有消息处理）"
+    with SevenZipFile(archive_path, "w", password=password) as archive:
+        archive.writeall(src_dir)
 
 
 def cookies_format(cookies: str):
@@ -132,8 +139,9 @@ async def download_book(url: Match[str], bot: Bot, event: MessageEvent):
         f"\n下载完成：{album_name}\n打包中", at_sender=at_sender(event)
     )
 
-    with SevenZipFile(f"downloads/{uuid}.7z", "w", password=uuid) as archive:
-        archive.writeall(f"downloads/{uuid}")
+    await asyncio.to_thread(
+        _pack_sevenz, f"downloads/{uuid}.7z", f"downloads/{uuid}", uuid
+    )
 
     await DownloadBookMatcher.send(
         f"\n{album_name}打包完成，上传中", at_sender=at_sender(event)

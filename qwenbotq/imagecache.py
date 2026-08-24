@@ -6,6 +6,7 @@
 "图片缓存功能"
 
 # standard imports
+import asyncio
 import os
 import time
 import zipfile
@@ -155,6 +156,20 @@ async def on_recall(event) -> None:
         )
 
 
+def _pack_recalls_zip(new_files: list[str], zip_path: str) -> int:
+    "同步打包撤回图片为 zip（在事件循环外执行，避免阻塞消息处理）；返回跳过的 0 字节文件数"
+    skipped = 0
+    with zipfile.ZipFile(zip_path, "w") as zf:
+        for f in new_files:
+            path = os.path.join(RECALLED_DIR, f)
+            if os.path.getsize(path) == 0:
+                logger.warning(f"撤回图片为 0 字节，跳过：{f}")
+                skipped += 1
+                continue
+            zf.write(path, arcname=f)
+    return skipped
+
+
 async def cleanup_cache() -> None:
     "按文件修改时间删除超过保留秒数的未撤回缓存图片"
 
@@ -285,16 +300,9 @@ async def get_recalls_zip(bot: Bot, event: PrivateMessageEvent) -> None:
 
     zip_name = f"recalls_{uuid4().hex}.zip"
     zip_path = os.path.join("downloads", zip_name)
-    skipped = 0
     try:
-        with zipfile.ZipFile(zip_path, "w") as zf:
-            for f in new_files:
-                path = os.path.join(RECALLED_DIR, f)
-                if os.path.getsize(path) == 0:
-                    logger.warning(f"撤回图片为 0 字节，跳过：{f}")
-                    skipped += 1
-                    continue
-                zf.write(path, arcname=f)
+        # 打包在事件循环外执行（线程池），避免大文件压缩阻塞全部消息处理
+        skipped = await asyncio.to_thread(_pack_recalls_zip, new_files, zip_path)
         await bot.upload_private_file(
             user_id=event.user_id,
             file=f"http://{host}:{port}/{zip_name}",

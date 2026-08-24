@@ -5,7 +5,7 @@
 ## 功能特性
 
 - **AI 对话**：接入 OpenAI 兼容 API，支持多模型、自定义提示词、工具调用与联网搜索（可选）。
-- **长期记忆**：基于向量数据库（Qdrant）+ 嵌入/重排模型的 RAG 记忆，支持会话上下文持久化与自动总结（可选）。
+- **会话上下文**：持久化对话上下文，接近上限时自动总结以继续长对话。
 - **识图搜图**：图片搜索功能，可选 ExHentai 源（需 Cookies）。
 - **撤回图片缓存**：对监听会话中被撤回的图片自动保存，支持超级用户检索与打包下载。
 - **E-Hentai 下载**：内置 `ehentaix` 库，支持图库搜索、缩略图与整本下载。
@@ -21,8 +21,7 @@
 - MongoDB
 - NapCatQQ / 其他 Onebot V11 协议驱动，设置正向 Websocket 连接
 - Git
-- OpenAI Format Api Key （若启用 AI 功能，如需记忆还需 Embedder 模型，若想要更好体验还需 Reranker 模型）
-- Qdrant （若启用 AI 记忆功能）
+- OpenAI Format Api Key （若启用 AI 功能）
 
 ### 安装步骤
 

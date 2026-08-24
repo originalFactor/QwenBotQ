@@ -20,11 +20,23 @@ class RecallSessions(Document):
 
 _KEY = "recall_sessions"
 
+# 进程内缓存：避免每条消息都查库；监听列表仅由 add/remove 修改，变更时失效
+_sessions_cache: set[str] | None = None
+
+
+def _invalidate_sessions_cache() -> None:
+    "监听会话列表变更后失效缓存"
+    global _sessions_cache
+    _sessions_cache = None
+
 
 async def get_recall_sessions() -> set[str]:
-    "获取所有监听会话ID"
-    rec = await RecallSessions.get(_KEY)
-    return set(rec.sessions) if rec else set()
+    "获取所有监听会话ID（带进程内缓存）"
+    global _sessions_cache
+    if _sessions_cache is None:
+        rec = await RecallSessions.get(_KEY)
+        _sessions_cache = set(rec.sessions) if rec else set()
+    return _sessions_cache
 
 
 async def add_recall_session(sess_id: str) -> bool:
@@ -33,11 +45,13 @@ async def add_recall_session(sess_id: str) -> bool:
     if not rec:
         rec = RecallSessions(id=_KEY, sessions=[sess_id])
         await rec.save()
+        _invalidate_sessions_cache()
         return True
     if sess_id in rec.sessions:
         return False
     rec.sessions.append(sess_id)
     await rec.save()
+    _invalidate_sessions_cache()
     return True
 
 
@@ -48,4 +62,5 @@ async def remove_recall_session(sess_id: str) -> bool:
         return False
     rec.sessions.remove(sess_id)
     await rec.save()
+    _invalidate_sessions_cache()
     return True

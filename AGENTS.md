@@ -4,7 +4,7 @@
 
 QwenBotQ is a Python NoneBot2 QQ entertainment bot using the OneBot v11 adapter. The root entry point is `bot.py`; the main plugin package is `qwenbotq/`.
 
-- `qwenbotq/ai/`: optional OpenAI-compatible chat, tools, and memory integration.
+- `qwenbotq/ai/`: optional OpenAI-compatible chat and tools integration.
 - `qwenbotq/database/`: Beanie/Motor MongoDB documents and database helpers.
 - `qwenbotq/config_model/`: Pydantic models for `config.yml`.
 - `qwenbotq/imagesearch/`, `fileserver.py`, `imagecache.py`: image search/download, HTTP file serving, and recalled-image caching.
@@ -32,7 +32,7 @@ poetry run black --check .     # formatting check
 poetry run pyright             # workspace type check (basic mode)
 ```
 
-Create a local `config.yml` from `config.example.yml` before starting. `qwenbotq.config_model.get_config()` opens `config.yml` relative to the current working directory, so run commands from the repository root. Runtime deployment normally also needs MongoDB, a OneBot v11 forward WebSocket driver (such as NapCatQQ), and optional Qdrant/API services for enabled features.
+Create a local `config.yml` from `config.example.yml` before starting. `qwenbotq.config_model.get_config()` opens `config.yml` relative to the current working directory, so run commands from the repository root. Runtime deployment normally also needs MongoDB, a OneBot v11 forward WebSocket driver (such as NapCatQQ), and optional API services for enabled features.
 
 Tests are currently live integration scripts rather than isolated unit tests:
 
