@@ -117,7 +117,9 @@ def _load_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
         return ImageFont.load_default()
 
 
-def _wrap_lines(text: str, font: ImageFont.FreeTypeFont, max_width: int) -> list[str]:
+def _wrap_lines(
+    text: str, font: ImageFont.FreeTypeFont | ImageFont.ImageFont, max_width: int
+) -> list[str]:
     """按像素宽度逐字换行，保留空行。"""
     lines: list[str] = []
     for raw in text.split("\n"):

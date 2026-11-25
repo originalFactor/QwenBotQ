@@ -6,8 +6,7 @@
 from collections.abc import AsyncGenerator
 from typing import Any
 
-from openai import AsyncOpenAI, AsyncStream
-from openai.types.chat import ChatCompletionChunk
+from openai import AsyncOpenAI
 from httpx2 import AsyncClient
 from nonebot import get_driver
 
@@ -56,22 +55,18 @@ async def chat(
     while True:
 
         # 创建请求
-        response: AsyncStream[ChatCompletionChunk] = (
-            await openai.chat.completions.create(
-                model=model_obj.model_id,
-                messages=messages,  # type: ignore
-                tools=tools,  # type: ignore
-                max_tokens=max_tokens or model_obj.max_tokens,
-                temperature=temperature,
-                frequency_penalty=frequency_penalty,
-                presence_penalty=presence_penalty,
-                stream=True,
-                extra_body={
-                    "thinking": {"type": "enabled" if thinking else "disabled"}
-                },
-                stream_options={"include_usage": True},
-                user="QwenBotQ",
-            )
+        response = await openai.chat.completions.create(
+            model=model_obj.model_id,
+            messages=messages,  # type: ignore
+            tools=tools,  # type: ignore
+            max_tokens=max_tokens or model_obj.max_tokens,
+            temperature=temperature,
+            frequency_penalty=frequency_penalty,
+            presence_penalty=presence_penalty,
+            stream=True,
+            extra_body={"thinking": {"type": "enabled" if thinking else "disabled"}},
+            stream_options={"include_usage": True},
+            user="QwenBotQ",
         )
 
         # 处理回复

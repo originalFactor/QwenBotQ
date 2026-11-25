@@ -12,6 +12,7 @@ from typing import Annotated
 from collections.abc import Callable, Awaitable
 
 from arclet.alconna import Alconna, Args
+from beanie import SortDirection
 from nonebot_plugin_alconna import on_alconna, At, Match
 from nonebot.adapters.onebot.v11 import Bot, MessageSegment, MessageEvent
 
@@ -152,9 +153,7 @@ async def transfer(
 async def _fetch_group_members(group_id: int, bot: Bot) -> list[dict] | None:
     "获取群成员列表（失败返回 None）"
     try:
-        return await bot.get_group_member_list(  # type: ignore
-            group_id=group_id
-        )
+        return await bot.get_group_member_list(group_id=group_id)  # type: ignore
     except Exception:
         return None
 
@@ -203,7 +202,9 @@ async def coins_rank(
     if member_ids is not None:
         scope = {"id": {"$in": list(member_ids)}}
 
-    top_users = await User.find(scope, sort=["-coins"], limit=10).to_list()
+    top_users = await User.find(
+        scope or {}, sort=[("coins", SortDirection.DESCENDING)], limit=10
+    ).to_list()
     ids = [u.id for u in top_users]
 
     real_rank = None

@@ -15,7 +15,7 @@ from nonebot.log import logger_id, default_filter
 
 # 修复 AIODNS 错误
 if platform == "win32":
-    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    asyncio.set_event_loop_policy(getattr(asyncio, "WindowsSelectorEventLoopPolicy")())
 
 # 作为服务运行时不重复输出时间
 if environ.get("RUNNING_AS_SERVICE", "no") == "yes":

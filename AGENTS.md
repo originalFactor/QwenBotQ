@@ -20,7 +20,7 @@ Read `README.md`, `config.example.yml`, and `SECURITY.md` before changing deploy
 
 ## Environment and commands
 
-The root project uses Poetry and supports Python `>=3.10,<3.14` (the README's deployment example uses Python 3.11). Install dependencies with:
+The root project uses Poetry and supports Python `>=3.11.5,<3.14`. Install dependencies with:
 
 ```bash
 poetry install

@@ -8,7 +8,7 @@
 import asyncio
 import time
 from dataclasses import dataclass, field
-from typing import Annotated
+from typing import Annotated, cast
 
 from arclet.alconna import Alconna, Args
 from nonebot_plugin_alconna import on_alconna, Match
@@ -449,7 +449,7 @@ async def sweep_expired_rooms():
                         p.finished = True  # 强制停牌
                         p.busted = hand_value(p.hand) > 21
                 try:
-                    bot = get_bot()
+                    bot = cast(Bot, get_bot())
                     msg = await _build_settlement(room, bot)
                     del _rooms[session_id]
                     if session_id.startswith("g"):

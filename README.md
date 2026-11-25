@@ -19,7 +19,7 @@
 
 ### 环境要求
 
-- Python 3.11
+- Python 3.11.5 or newer (below 3.14)
 - MongoDB
 - NapCatQQ / 其他 Onebot V11 协议驱动，设置正向 Websocket 连接
 - Git
